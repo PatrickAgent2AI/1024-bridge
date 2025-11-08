@@ -164,19 +164,43 @@ export function getPostedVAAPDA(
 }
 
 /**
- * 获取WrappedMeta PDA
+ * 获取TokenBinding PDA
+ * @param programId token-bridge程序ID
+ * @param sourceChain 源链ID
+ * @param sourceToken 源链代币地址（32字节）
+ * @param targetChain 目标链ID
+ * @param targetToken 目标链代币地址（32字节）
  */
-export function getWrappedMetaPDA(
+export function getTokenBindingPDA(
   programId: PublicKey,
-  tokenChain: number,
-  tokenAddress: Buffer
+  sourceChain: number,
+  sourceToken: Buffer,
+  targetChain: number,
+  targetToken: Buffer
 ): [PublicKey, number] {
-  const chainBuffer = Buffer.alloc(2);
-  chainBuffer.writeUInt16LE(tokenChain);
+  const sourceChainBuffer = Buffer.alloc(2);
+  sourceChainBuffer.writeUInt16LE(sourceChain);
+  
+  const targetChainBuffer = Buffer.alloc(2);
+  targetChainBuffer.writeUInt16LE(targetChain);
+  
   return derivePDA(
-    [Buffer.from("WrappedMeta"), chainBuffer, tokenAddress],
+    [
+      Buffer.from("TokenBinding"),
+      sourceChainBuffer,
+      sourceToken,
+      targetChainBuffer,
+      targetToken,
+    ],
     programId
   );
+}
+
+/**
+ * 获取BridgeConfig PDA
+ */
+export function getBridgeConfigPDA(programId: PublicKey): [PublicKey, number] {
+  return derivePDA([Buffer.from("BridgeConfig")], programId);
 }
 
 /**

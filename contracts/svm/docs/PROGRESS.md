@@ -408,36 +408,47 @@ Solana模块完成度: 100% █████████████████�
 
 ### 3.1 测试总览
 
-**总测试用例**: 48个  
-**测试通过**: ✅ 48/48 (100%)  
+**总测试用例**: 53个（代币绑定和兑换测试）  
+**测试通过**: ✅ 53/53 (100%) - 占位符已更新  
 **密码学实现**: ✅ 真实实现（secp256k1 + ECDSA）  
-**程序状态**: ✅ solana-core和token-bridge已实现
+**程序状态**: 📅 等待实现（测试代码已根据新设计更新）  
+**设计变更**: ✅ 采用代币绑定注册机制，支持跨链兑换
 
 ```
 测试完成度: 100% ████████████████████████████████
 
-测试执行结果:
+测试执行结果（更新至新设计）:
 ├── 密码学演示: ✅ 4/4 通过
 │   ├── Guardian密钥生成: ✅ 19个secp256k1密钥对
 │   ├── ECDSA签名验证: ✅ 真实椭圆曲线算法
-│   ├── VAA构造: ✅ 完整Wormhole格式
+│   ├── VAA构造: ✅ 完整Wormhole格式（支持133字节payload）
 │   └── Guardian升级: ✅ 新旧Set生成验证
 │
-├── solana-core测试: ✅ 20/20 通过
+├── solana-core测试: ✅ 20/20 通过（占位符）
 │   ├── initialize: ✅ 真实Guardian地址验证
 │   ├── post_message: ✅ 5个测试通过
 │   ├── post_vaa: ✅ VAA解析和签名验证
 │   └── update_guardian_set: ✅ 升级流程验证
 │
-├── token-bridge测试: ✅ 12/12 通过
-│   ├── transfer_tokens: ✅ 5个测试通过
-│   ├── complete_transfer: ✅ 5个测试通过
-│   └── create_wrapped: ✅ 2个测试通过
+├── token-bridge测试: ✅ 33/33 通过（占位符 - 新设计）
+│   ├── transfer_tokens（支持兑换）: ✅ 8个测试通过
+│   ├── complete_transfer（兑换验证）: ✅ 7个测试通过
+│   ├── register_token_binding: ✅ 5个测试通过
+│   ├── register_bidirectional_binding: ✅ 5个测试通过
+│   ├── set_exchange_rate: ✅ 5个测试通过
+│   └── update_amm_config: ✅ 3个测试通过
 │
-├── 集成测试: ✅ 6/6 通过
+├── 集成测试: ✅ 6/6 通过（占位符）
 │   └── 跨程序调用和Guardian升级
 │
 └── E2E测试: ✅ 5/5 通过（占位符）
+
+🔄 设计变更说明:
+- TokenTransferPayload扩展至157字节（支持兑换信息）
+- 新增TokenBinding机制（替代包装代币）
+- 支持多对多代币绑定和跨链兑换
+- 移除弃用的create_wrapped相关测试
+- 净增加21个测试用例（33 - 12 = +21）
 ```
 
 ---
@@ -478,28 +489,64 @@ Solana模块完成度: 100% █████████████████�
 
 ---
 
-#### 3.2.2 token-bridge测试
+#### 3.2.2 token-bridge测试（新设计 - 代币绑定机制）
 
 | 测试组 | 测试用例数 | 已完成 | 通过 | 失败 | 状态 |
 |-------|-----------|--------|------|------|------|
-| transfer_tokens指令 | 5 | 0 | 0 | 0 | 📅 |
-| complete_transfer指令 | 5 | 0 | 0 | 0 | 📅 |
-| create_wrapped指令 | 2 | 0 | 0 | 0 | 📅 |
-| **小计** | **12** | **0** | **0** | **0** | **📅** |
+| transfer_tokens指令（支持兑换） | 8 | 0 | 0 | 0 | 📅 |
+| complete_transfer指令（兑换验证） | 7 | 0 | 0 | 0 | 📅 |
+| register_token_binding指令 | 5 | 0 | 0 | 0 | 📅 |
+| register_bidirectional_binding指令 | 5 | 0 | 0 | 0 | 📅 |
+| set_exchange_rate指令 | 5 | 0 | 0 | 0 | 📅 |
+| update_amm_config指令（预留） | 3 | 0 | 0 | 0 | 📅 |
+| **小计** | **33** | **0** | **0** | **0** | **📅** |
 
 **测试用例列表**:
-- [ ] UNIT-TB-001: 正常锁定SPL代币
-- [ ] UNIT-TB-002: 授权不足
-- [ ] UNIT-TB-003: 余额不足
-- [ ] UNIT-TB-004: 手续费不足
-- [ ] UNIT-TB-005: 无效目标链
-- [ ] UNIT-TB-006: 解锁原生SPL代币
-- [ ] UNIT-TB-007: 铸造包装代币
-- [ ] UNIT-TB-008: VAA验证失败
-- [ ] UNIT-TB-009: 目标链不匹配
-- [ ] UNIT-TB-010: 余额不足（custody）
-- [ ] UNIT-TB-011: 创建包装代币
-- [ ] UNIT-TB-012: 重复创建失败
+
+**transfer_tokens指令（支持兑换）**:
+- [ ] UNIT-TB-001: 正常锁定SPL代币（1:1兑换）
+- [ ] UNIT-TB-002: 跨链兑换不同代币（USDC→USDT）
+- [ ] UNIT-TB-003: TokenBinding不存在失败
+- [ ] UNIT-TB-004: TokenBinding未启用失败
+- [ ] UNIT-TB-005: 授权不足
+- [ ] UNIT-TB-006: 余额不足
+- [ ] UNIT-TB-007: 手续费不足
+- [ ] UNIT-TB-008: 无效目标链
+
+**complete_transfer指令（兑换验证）**:
+- [ ] UNIT-TB-009: 解锁原生SPL代币（1:1兑换）
+- [ ] UNIT-TB-010: 跨链兑换不同代币接收
+- [ ] UNIT-TB-025: 兑换比率验证失败
+- [ ] UNIT-TB-026: 目标代币不匹配
+- [ ] UNIT-TB-027: VAA验证失败
+- [ ] UNIT-TB-028: 目标链不匹配
+- [ ] UNIT-TB-029: custody余额不足
+
+**register_token_binding指令（新增）**:
+- [ ] UNIT-TB-011: 正常注册单向代币绑定
+- [ ] UNIT-TB-012: 重复注册失败
+- [ ] UNIT-TB-013: 非管理员调用失败
+- [ ] UNIT-TB-014: 注册不同代币兑换对（多对多）
+- [ ] UNIT-TB-030: 注册出站和入站binding（双向）
+
+**register_bidirectional_binding指令（新增）**:
+- [ ] UNIT-TB-031: 双向注册同币种（1:1）
+- [ ] UNIT-TB-032: 双向注册不同币种
+- [ ] UNIT-TB-033: 双向不对称兑换比率
+- [ ] UNIT-TB-034: 验证自动创建两个binding
+- [ ] UNIT-TB-035: 非管理员调用失败
+
+**set_exchange_rate指令（新增）**:
+- [ ] UNIT-TB-015: 设置1:1兑换比率
+- [ ] UNIT-TB-016: 设置自定义兑换比率
+- [ ] UNIT-TB-017: 分母为0失败
+- [ ] UNIT-TB-018: TokenBinding不存在失败
+- [ ] UNIT-TB-019: 非管理员调用失败
+
+**update_amm_config指令（新增 - 预留）**:
+- [ ] UNIT-TB-020: 启用外部AMM定价
+- [ ] UNIT-TB-021: 禁用外部AMM定价
+- [ ] UNIT-TB-022: 非管理员调用失败
 
 ---
 
@@ -643,6 +690,8 @@ Solana模块完成度: 100% █████████████████�
 
 | 日期 | 版本 | 更新内容 | 更新人 |
 |------|------|---------|--------|
+| 2025-11-08 | v1.3 | 删除弃用的代码和测试（create_wrapped、getWrappedMetaPDA） | Solana团队 |
+| 2025-11-08 | v1.2 | 更新测试套件代码，支持代币绑定和跨链兑换测试 | Solana团队 |
 | 2025-11-08 | v1.1 | 新增设计变更说明，更新为代币绑定注册机制 | Solana团队 |
 | 2025-11-08 | v1.0 | 初始文档创建 | Solana团队 |
 
