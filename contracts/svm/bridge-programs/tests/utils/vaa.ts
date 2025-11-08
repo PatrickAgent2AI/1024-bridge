@@ -10,10 +10,12 @@
  */
 
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { keccak256 } from "js-sha3";
-import { ec as EC } from "elliptic";
+import keccakPkg from "js-sha3";
+import elliptic from "elliptic";
 import * as crypto from "crypto";
 
+const { keccak256 } = keccakPkg;
+const EC = elliptic.ec;
 const ec = new EC("secp256k1");
 
 /**
@@ -189,14 +191,14 @@ export function hashVAABody(bodyBuffer: Buffer): Buffer {
  * 生成Guardian密钥对（secp256k1）
  */
 export function generateGuardianKey(seed?: Buffer): GuardianKeyPair {
-  const privateKey = seed || crypto.randomBytes(32);
-  const key = ec.keyFromPrivate(privateKey);
+  const privateKey = seed || Buffer.from(crypto.randomBytes(32));
+  const key = ec.keyFromPrivate(Array.from(privateKey));
   
   // 获取公钥（uncompressed，64字节，不含0x04前缀）
-  const publicKeyFull = key.getPublic();
+  const publicKeyPoint = key.getPublic();
   const publicKey = Buffer.concat([
-    Buffer.from(publicKeyFull.getX().toArray('be', 32)),
-    Buffer.from(publicKeyFull.getY().toArray('be', 32))
+    Buffer.from(publicKeyPoint.getX().toArray('be', 32)),
+    Buffer.from(publicKeyPoint.getY().toArray('be', 32))
   ]);
   
   // 计算Ethereum地址（公钥keccak256哈希的后20字节）
@@ -217,8 +219,11 @@ export function generateGuardianKeys(count: number): GuardianKeyPair[] {
   const keys: GuardianKeyPair[] = [];
   for (let i = 0; i < count; i++) {
     // 使用确定性种子便于测试重现
+    // 避免全0种子，使用哈希生成有效的私钥
     const seed = Buffer.alloc(32);
-    seed.writeUInt32BE(i, 28);
+    seed.writeUInt32BE(i + 1, 0);  // 从1开始避免全0
+    seed.writeUInt32BE(0x12345678, 4); // 添加固定magic number
+    seed.writeUInt32BE(i * 0x1000 + 0x8888, 8); // 添加变化值
     keys.push(generateGuardianKey(seed));
   }
   return keys;

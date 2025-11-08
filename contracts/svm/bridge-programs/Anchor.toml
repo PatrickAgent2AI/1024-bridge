@@ -6,7 +6,8 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-bridge_programs = "6M3PpQvV5zHdqgM4vKNvnqn8PTNn7xwzKstVAH1r4dik"
+solana_core = "worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth"
+token_bridge = "wormDTUJ6AWPNvk59vGQbDvGJmqbDTdgWgAqcLBCgUb"
 
 [registry]
 url = "https://api.apr.dev"

@@ -62,7 +62,9 @@ export function generateNewGuardianKeys(count: number = 19): GuardianKeyPair[] {
   for (let i = 0; i < count; i++) {
     // 使用不同的种子生成新的Guardian Set
     const seed = Buffer.alloc(32);
-    seed.writeUInt32BE(i + 100, 28); // 偏移100避免与原Guardian重复
+    seed.writeUInt32BE(i + 100, 0); // 偏移100避免与原Guardian重复
+    seed.writeUInt32BE(0xABCDEF00, 4); // 不同的magic number
+    seed.writeUInt32BE(i * 0x2000 + 0xFFFF, 8);
     const { generateGuardianKey } = require("./vaa");
     keys.push(generateGuardianKey(seed));
   }

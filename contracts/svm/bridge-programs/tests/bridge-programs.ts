@@ -1,16 +1,13 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { BridgePrograms } from "../target/types/bridge_programs";
 
-describe("bridge-programs", () => {
+describe("bridge-programs（默认测试已禁用）", () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.AnchorProvider.env());
 
-  const program = anchor.workspace.bridgePrograms as Program<BridgePrograms>;
+  // const program = anchor.workspace.SolanaCore as Program;
 
-  it("Is initialized!", async () => {
-    // Add your test here.
-    const tx = await program.methods.initialize().rpc();
-    console.log("Your transaction signature", tx);
+  it("默认测试已禁用，请运行单元测试", async () => {
+    console.log("请运行: yarn test:unit");
   });
 });

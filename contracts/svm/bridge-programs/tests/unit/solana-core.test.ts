@@ -61,8 +61,8 @@ describe("solana-core单元测试", () => {
     const env = await setupTestEnvironment();
     provider = env.provider;
     
-    // 注意：这里需要替换为实际的程序
-    // program = anchor.workspace.SolanaCore as Program<SolanaCore>;
+    // 加载程序
+    program = anchor.workspace.SolanaCore as Program;
     
     payer = Keypair.generate();
     await airdrop(provider.connection, payer.publicKey);
@@ -76,10 +76,10 @@ describe("solana-core单元测试", () => {
     console.log(`  Guardian 0地址: 0x${testGuardianAddresses[0].toString('hex')}`);
     console.log(`  Guardian 18地址: 0x${testGuardianAddresses[18].toString('hex')}`);
     
-    // 计算PDAs（等待程序实现后取消注释）
-    // [bridgePDA] = getBridgePDA(program.programId);
-    // [guardianSet0PDA] = getGuardianSetPDA(program.programId, 0);
-    // [guardianSet1PDA] = getGuardianSetPDA(program.programId, 1);
+    // 计算PDAs
+    [bridgePDA] = getBridgePDA(program.programId);
+    [guardianSet0PDA] = getGuardianSetPDA(program.programId, 0);
+    [guardianSet1PDA] = getGuardianSetPDA(program.programId, 1);
     
     console.log("✓ 测试环境初始化完成");
   });
@@ -99,39 +99,38 @@ describe("solana-core单元测试", () => {
       console.log(`  Message Fee: ${messageFee} lamports`);
       
       printTestStep(2, "调用initialize指令");
-      // 注意：等待程序实现后取消注释
-      // const tx = await program.methods
-      //   .initialize(0, guardians, new anchor.BN(messageFee))
-      //   .accounts({
-      //     bridge: bridgePDA,
-      //     guardianSet: guardianSet0PDA,
-      //     payer: payer.publicKey,
-      //     systemProgram: SystemProgram.programId,
-      //   })
-      //   .signers([payer])
-      //   .rpc();
+      const tx = await program.methods
+        .initialize(0, guardians, new anchor.BN(messageFee))
+        .accounts({
+          bridge: bridgePDA,
+          guardianSet: guardianSet0PDA,
+          payer: payer.publicKey,
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([payer])
+        .rpc();
       
-      // assertTxSuccess(tx, "Bridge初始化成功");
+      assertTxSuccess(tx, "Bridge初始化成功");
       
       printTestStep(3, "验证Bridge账户");
-      // const bridge = await program.account.bridge.fetch(bridgePDA);
-      // assertEqual(bridge.guardianSetIndex, 0, "Guardian Set索引为0");
-      // assertEqual(bridge.messageFee.toNumber(), messageFee, "Message Fee正确");
-      // assertEqual(bridge.paused, false, "Bridge未暂停");
+      const bridge = await program.account.bridge.fetch(bridgePDA);
+      assertEqual(bridge.guardianSetIndex, 0, "Guardian Set索引为0");
+      assertEqual(bridge.messageFee.toNumber(), messageFee, "Message Fee正确");
+      assertEqual(bridge.paused, false, "Bridge未暂停");
       
       printTestStep(4, "验证Guardian Set账户");
-      // const guardianSet = await program.account.guardianSet.fetch(guardianSet0PDA);
-      // assertEqual(guardianSet.index, 0, "Guardian Set索引为0");
-      // assertEqual(guardianSet.guardians.length, 19, "Guardian数量为19");
-      // assertEqual(guardianSet.expirationTime, 0, "未设置过期时间（active）");
+      const guardianSet = await program.account.guardianSet.fetch(guardianSet0PDA);
+      assertEqual(guardianSet.index, 0, "Guardian Set索引为0");
+      assertEqual(guardianSet.guardians.length, 19, "Guardian数量为19");
+      assertEqual(guardianSet.expirationTime, 0, "未设置过期时间（active）");
       
       // 验证每个Guardian地址
-      // for (let i = 0; i < 19; i++) {
-      //   assert(
-      //     Buffer.from(guardianSet.guardians[i]).equals(guardians[i]),
-      //     `Guardian ${i}地址匹配`
-      //   );
-      // }
+      for (let i = 0; i < 19; i++) {
+        assert(
+          Buffer.from(guardianSet.guardians[i]).equals(guardians[i]),
+          `Guardian ${i}地址匹配`
+        );
+      }
       
       console.log("✓ UNIT-SC-001 测试通过（占位，等待程序实现）");
       console.log("  包含真实Guardian密钥和地址验证逻辑");

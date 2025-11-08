@@ -1,0 +1,7 @@
+---
+alwaysApply: true
+---
+使用如下方法构造默认项目之后，再基于对默认项目的修改开展项目开发工作，编写Solidity合约代码。
+```
+forge init <project-name>
+```

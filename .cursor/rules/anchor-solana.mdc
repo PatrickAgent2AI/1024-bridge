@@ -1,0 +1,17 @@
+---
+alwaysApply: true
+---
+当你需要编写Solana合约程序时，请使用Anchor框架，并遵循以下规则：
+
+使用如下命令安装solana-cli及anchor相关的工具：
+
+```
+curl --proto '=https' --tlsv1.2 -sSfL https://solana-install.solana.workers.dev | bash
+```
+
+使用如下命令生成Anchor项目：
+```
+anchor init <project-name>
+```
+
+然后基于对默认项目的修改开展项目开发工作，编写Anchor合约代码。

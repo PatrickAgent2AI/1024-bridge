@@ -1,12 +1,12 @@
 [package]
-name = "bridge-programs"
+name = "solana-core"
 version = "0.1.0"
-description = "Created with Anchor"
+description = "Solana Bridge Core Program"
 edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "bridge_programs"
+name = "solana_core"
 
 [features]
 default = []
@@ -21,7 +21,9 @@ custom-panic = []
 
 
 [dependencies]
-anchor-lang = "0.32.1"
+anchor-lang = { version = "0.32.1", features = ["init-if-needed"] }
+hex = "0.4"
+byteorder = "1.5"
 
 
 [lints.rust]
