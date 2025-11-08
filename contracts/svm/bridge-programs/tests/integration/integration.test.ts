@@ -10,8 +10,9 @@ import { assert } from "chai";
 import {
   setupTestEnvironment,
   airdrop,
-  generateTestGuardians,
-  generateTestGuardianKeypairs,
+  TEST_GUARDIAN_KEYS,
+  getGuardianAddresses,
+  generateNewGuardianKeys,
   createTestMint,
   createAndMintTestToken,
   getTokenBalance,
@@ -43,9 +44,9 @@ describe("程序集成测试", () => {
   let user: Keypair;
   
   // Test data
-  let testGuardians: Buffer[];
-  let testGuardianKeypairs: Keypair[];
-  let newTestGuardians: Buffer[];
+  let testGuardianKeys: any[];
+  let testGuardianAddresses: Buffer[];
+  let newGuardianKeys: any[];
   
   before(async () => {
     printTestHeader("集成测试环境初始化");
@@ -53,9 +54,9 @@ describe("程序集成测试", () => {
     const env = await setupTestEnvironment();
     provider = env.provider;
     
-    // 注意：这里需要替换为实际的程序
-    // coreProgram = anchor.workspace.SolanaCore as Program<SolanaCore>;
-    // tokenProgram = anchor.workspace.TokenBridge as Program<TokenBridge>;
+    // 加载程序
+    coreProgram = anchor.workspace.SolanaCore as Program;
+    tokenProgram = anchor.workspace.TokenBridge as Program;
     
     payer = Keypair.generate();
     user = Keypair.generate();
@@ -63,9 +64,9 @@ describe("程序集成测试", () => {
     await airdrop(provider.connection, payer.publicKey);
     await airdrop(provider.connection, user.publicKey);
     
-    testGuardians = generateTestGuardians(19);
-    testGuardianKeypairs = generateTestGuardianKeypairs(19);
-    newTestGuardians = generateTestGuardians(19);
+    testGuardianKeys = TEST_GUARDIAN_KEYS;
+    testGuardianAddresses = getGuardianAddresses();
+    newGuardianKeys = generateNewGuardianKeys(19);
     
     console.log("✓ 集成测试环境初始化完成");
   });
@@ -193,13 +194,13 @@ describe("程序集成测试", () => {
     printTestHeader("INT-SOL-004: Guardian升级过渡期测试");
     
     printTestStep(1, "执行Guardian Set升级");
-    const upgradePayload: GuardianSetUpgradePayload = {
-      module: 0x01,
-      action: 0x02,
-      chain: 0,
-      newGuardianSetIndex: 1,
-      newGuardians: newTestGuardians,
-    };
+      const upgradePayload: GuardianSetUpgradePayload = {
+        module: 0x01,
+        action: 0x02,
+        chain: 0,
+        newGuardianSetIndex: 1,
+        newGuardians: newGuardianKeys.map(k => k.address),
+      };
     
     // const upgradeVAA = createGuardianSetUpgradeVAA({ ... });
     // await coreProgram.methods.updateGuardianSet(upgradeVAA).accounts({ ... }).rpc();

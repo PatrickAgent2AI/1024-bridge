@@ -170,20 +170,4 @@ export const TEST_USERS = {
   charlie: Keypair.generate(),
 };
 
-/**
- * 以太坊地址转32字节格式
- */
-export function ethAddressToBytes32(ethAddress: string): Buffer {
-  const buffer = Buffer.alloc(32);
-  const addressBuffer = Buffer.from(ethAddress.replace('0x', ''), 'hex');
-  addressBuffer.copy(buffer, 12); // 以太坊地址20字节，前面补12个0
-  return buffer;
-}
-
-/**
- * Solana公钥转32字节格式
- */
-export function solanaAddressToBytes32(pubkey: PublicKey): Buffer {
-  return Buffer.from(pubkey.toBytes());
-}
 

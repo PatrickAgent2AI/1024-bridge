@@ -48,9 +48,9 @@ describe("token-bridge单元测试", () => {
     const env = await setupTestEnvironment();
     provider = env.provider;
     
-    // 注意：这里需要替换为实际的程序
-    // coreProgram = anchor.workspace.SolanaCore as Program<SolanaCore>;
-    // tokenProgram = anchor.workspace.TokenBridge as Program<TokenBridge>;
+    // 加载程序
+    coreProgram = anchor.workspace.SolanaCore as Program;
+    tokenProgram = anchor.workspace.TokenBridge as Program;
     
     payer = Keypair.generate();
     user = Keypair.generate();
