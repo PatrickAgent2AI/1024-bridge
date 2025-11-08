@@ -54,15 +54,23 @@ export interface Signature {
 }
 
 /**
- * TokenTransfer Payload结构
+ * TokenTransfer Payload结构（新版本 - 支持跨链兑换）
+ * 总大小：133字节
  */
 export interface TokenTransferPayload {
-  payloadType: number;       // 1 = token transfer
-  amount: bigint;
-  tokenAddress: Buffer;       // 32 bytes
-  tokenChain: number;
-  recipient: Buffer;          // 32 bytes
-  recipientChain: number;
+  // 基础字段（77字节）
+  payloadType: number;       // 1 = token transfer with exchange
+  amount: bigint;            // 源链锁定数量
+  tokenAddress: Buffer;      // 32 bytes - 源链代币地址
+  tokenChain: number;        // 源链ID
+  recipient: Buffer;         // 32 bytes - 接收者地址
+  recipientChain: number;    // 目标链ID
+  
+  // 新增兑换字段（56字节）
+  targetToken: Buffer;       // 32 bytes - 目标链代币地址
+  targetAmount: bigint;      // 目标链接收数量
+  exchangeRateNum: bigint;   // 兑换比率分子
+  exchangeRateDenom: bigint; // 兑换比率分母
 }
 
 /**
@@ -77,10 +85,23 @@ export interface GuardianSetUpgradePayload {
 }
 
 /**
- * 序列化TokenTransfer Payload
+ * 序列化TokenTransfer Payload（新版本 - 133字节）
+ * 
+ * 字节布局：
+ * 0-0:    payloadType (1)
+ * 1-32:   amount (32)
+ * 33-64:  tokenAddress (32)
+ * 65-66:  tokenChain (2)
+ * 67-98:  recipient (32)
+ * 99-100: recipientChain (2)
+ * 101-132: targetToken (32)
+ * 133-140: targetAmount (8)
+ * 141-148: exchangeRateNum (8)
+ * 149-156: exchangeRateDenom (8)
+ * Total: 157 bytes
  */
 export function serializeTokenTransferPayload(payload: TokenTransferPayload): Buffer {
-  const buffer = Buffer.alloc(133); // 1 + 32 + 32 + 2 + 32 + 2 + 32 = 133
+  const buffer = Buffer.alloc(157); // 更新为157字节
   let offset = 0;
   
   // payloadType: uint8
@@ -108,6 +129,28 @@ export function serializeTokenTransferPayload(payload: TokenTransferPayload): Bu
   
   // recipientChain: uint16
   buffer.writeUInt16BE(payload.recipientChain, offset);
+  offset += 2;
+  
+  // 新增字段：targetToken (32 bytes)
+  payload.targetToken.copy(buffer, offset);
+  offset += 32;
+  
+  // targetAmount: uint64 (8 bytes big-endian)
+  const targetAmountBuffer = Buffer.alloc(8);
+  targetAmountBuffer.writeBigUInt64BE(payload.targetAmount);
+  targetAmountBuffer.copy(buffer, offset);
+  offset += 8;
+  
+  // exchangeRateNum: uint64 (8 bytes big-endian)
+  const rateNumBuffer = Buffer.alloc(8);
+  rateNumBuffer.writeBigUInt64BE(payload.exchangeRateNum);
+  rateNumBuffer.copy(buffer, offset);
+  offset += 8;
+  
+  // exchangeRateDenom: uint64 (8 bytes big-endian)
+  const rateDenomBuffer = Buffer.alloc(8);
+  rateDenomBuffer.writeBigUInt64BE(payload.exchangeRateDenom);
+  rateDenomBuffer.copy(buffer, offset);
   
   return buffer;
 }
