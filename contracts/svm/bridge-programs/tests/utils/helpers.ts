@@ -164,7 +164,7 @@ export function getPostedVAAPDA(
 }
 
 /**
- * 获取WrappedMeta PDA
+ * 获取WrappedMeta PDA（已弃用，保留用于向后兼容）
  */
 export function getWrappedMetaPDA(
   programId: PublicKey,
@@ -177,6 +177,41 @@ export function getWrappedMetaPDA(
     [Buffer.from("WrappedMeta"), chainBuffer, tokenAddress],
     programId
   );
+}
+
+/**
+ * 获取TokenBinding PDA（新版本 - 支持多对多关系）
+ */
+export function getTokenBindingPDA(
+  programId: PublicKey,
+  sourceChain: number,
+  sourceToken: Buffer,
+  targetChain: number,
+  targetToken: Buffer
+): [PublicKey, number] {
+  const sourceChainBuffer = Buffer.alloc(2);
+  sourceChainBuffer.writeUInt16LE(sourceChain);
+  
+  const targetChainBuffer = Buffer.alloc(2);
+  targetChainBuffer.writeUInt16LE(targetChain);
+  
+  return derivePDA(
+    [
+      Buffer.from("TokenBinding"),
+      sourceChainBuffer,
+      sourceToken,
+      targetChainBuffer,
+      targetToken,
+    ],
+    programId
+  );
+}
+
+/**
+ * 获取BridgeConfig PDA
+ */
+export function getBridgeConfigPDA(programId: PublicKey): [PublicKey, number] {
+  return derivePDA([Buffer.from("BridgeConfig")], programId);
 }
 
 /**
@@ -330,5 +365,39 @@ export function assertLessThan(
     );
   }
   console.log(`✓ ${message || "Assertion passed"}`);
+}
+
+/**
+ * 计算目标链代币数量（应用兑换比率）
+ */
+export function calculateTargetAmount(
+  sourceAmount: bigint,
+  rateNumerator: bigint,
+  rateDenominator: bigint
+): bigint {
+  return (sourceAmount * rateNumerator) / rateDenominator;
+}
+
+/**
+ * 创建测试用的TokenBinding参数
+ */
+export function createTestTokenBinding(params: {
+  sourceChain: number;
+  sourceToken: Buffer;
+  targetChain: number;
+  targetToken: Buffer;
+  rateNumerator?: bigint;
+  rateDenominator?: bigint;
+  useExternalPrice?: boolean;
+}) {
+  return {
+    sourceChain: params.sourceChain,
+    sourceToken: params.sourceToken,
+    targetChain: params.targetChain,
+    targetToken: params.targetToken,
+    rateNumerator: params.rateNumerator || BigInt(1),
+    rateDenominator: params.rateDenominator || BigInt(1),
+    useExternalPrice: params.useExternalPrice || false,
+  };
 }
 

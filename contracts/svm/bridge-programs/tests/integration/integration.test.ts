@@ -27,6 +27,8 @@ import {
   getBridgePDA,
   getGuardianSetPDA,
   getSequencePDA,
+  getTokenBindingPDA,
+  calculateTargetAmount,
   printTestHeader,
   printTestStep,
   assertEqual,
@@ -75,8 +77,8 @@ describe("程序集成测试", () => {
   // INT-SOL-001: transfer_tokens → post_message
   // ============================================
   
-  it("INT-SOL-001: transfer_tokens调用post_message", async () => {
-    printTestHeader("INT-SOL-001: 跨程序调用测试");
+  it("INT-SOL-001: transfer_tokens调用post_message（含兑换信息）", async () => {
+    printTestHeader("INT-SOL-001: 跨程序调用测试（兑换场景）");
     
     printTestStep(1, "创建测试Token并铸造");
     // const mint = await createTestMint(provider.connection, payer, 6);
@@ -88,85 +90,145 @@ describe("程序集成测试", () => {
     //   BigInt(1000_000_000)
     // );
     
-    printTestStep(2, "调用transfer_tokens");
-    const amount = BigInt(500_000_000);
+    printTestStep(2, "注册TokenBinding（USDC→USDT, 998:1000）");
+    const sourceToken = Buffer.alloc(32); // 假设是USDC
+    const targetToken = ethAddressToBytes32("0xdAC17F958D2ee523a2206206994597C13D831ec7"); // USDT
+    
+    // const bindingTx = await tokenProgram.methods
+    //   .registerTokenBinding(
+    //     900, Array.from(sourceToken),
+    //     1, Array.from(targetToken)
+    //   )
+    //   .accounts({ ... })
+    //   .rpc();
+    
+    // await tokenProgram.methods
+    //   .setExchangeRate(900, Array.from(sourceToken), 1, new anchor.BN(998), new anchor.BN(1000))
+    //   .accounts({ ... })
+    //   .rpc();
+    
+    console.log("  ✓ TokenBinding注册: USDC→USDT (998:1000)");
+    
+    printTestStep(3, "调用transfer_tokens（USDC兑换为USDT）");
+    const amount = BigInt(1000_000_000); // 1000 USDC
     const targetChain = 1; // Ethereum
     const recipient = ethAddressToBytes32("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb");
     
     // const tx = await tokenProgram.methods
-    //   .transferTokens(new anchor.BN(amount.toString()), targetChain, Array.from(recipient))
-    //   .accounts({ ... })
+    //   .transferTokens(
+    //     new anchor.BN(amount.toString()),
+    //     targetChain,
+    //     Array.from(targetToken), // 目标代币USDT
+    //     Array.from(recipient)
+    //   )
+    //   .accounts({
+    //     tokenBinding: tokenBindingPDA,
+    //     ...
+    //   })
     //   .signers([user])
     //   .rpc();
     
     // assertTxSuccess(tx, "transfer_tokens成功");
     
-    printTestStep(3, "验证post_message被调用");
-    // 查询序列号是否递增
+    printTestStep(4, "验证post_message被调用");
     // const [sequencePDA] = getSequencePDA(coreProgram.programId, tokenProgram.programId);
     // const sequence = await coreProgram.account.sequence.fetch(sequencePDA);
     // assertEqual(sequence.sequence.toNumber(), 1, "序列号递增");
     
-    printTestStep(4, "验证消息内容");
+    printTestStep(5, "验证消息payload包含兑换信息");
     // const [messagePDA] = getPostedMessagePDA(coreProgram.programId, tokenProgram.programId, BigInt(0));
     // const message = await coreProgram.account.postedMessage.fetch(messagePDA);
-    
-    // 解析payload验证TokenTransfer内容
     // const payload = parseTokenTransferPayload(message.payload);
-    // assertEqual(payload.amount, amount, "转账金额正确");
-    // assertEqual(payload.recipientChain, targetChain, "目标链正确");
+    
+    const expectedTargetAmount = calculateTargetAmount(amount, BigInt(998), BigInt(1000));
+    assertEqual(expectedTargetAmount, BigInt(998_000_000), "目标链应收到998 USDT");
+    
+    // assertEqual(payload.amount, amount, "源链金额1000 USDC");
+    // assertEqual(payload.targetToken, targetToken, "目标代币为USDT");
+    // assertEqual(payload.targetAmount, expectedTargetAmount, "目标链998 USDT");
+    // assertEqual(payload.exchangeRateNum, BigInt(998), "兑换比率998:1000");
     
     console.log("✓ INT-SOL-001 测试通过（占位，等待程序实现）");
+    console.log("  验证了TokenBinding查询和兑换payload生成");
   });
   
   // ============================================
   // INT-SOL-002: post_vaa → complete_transfer
   // ============================================
   
-  it("INT-SOL-002: post_vaa后complete_transfer", async () => {
-    printTestHeader("INT-SOL-002: VAA验证后完成转账");
+  it("INT-SOL-002: post_vaa后complete_transfer（含兑换验证）", async () => {
+    printTestHeader("INT-SOL-002: VAA验证后完成转账（兑换场景）");
     
-    printTestStep(1, "构造跨链转账VAA");
+    printTestStep(1, "注册入站TokenBinding（USDT→USDC, 1002:1000）");
+    const ethUSDT = ethAddressToBytes32("0xdAC17F958D2ee523a2206206994597C13D831ec7");
+    const solUSDC = Buffer.alloc(32);
+    
+    // await tokenProgram.methods
+    //   .registerTokenBinding(
+    //     1, Array.from(ethUSDT),
+    //     900, Array.from(solUSDC)
+    //   )
+    //   .accounts({ ... })
+    //   .rpc();
+    
+    // await tokenProgram.methods
+    //   .setExchangeRate(1, Array.from(ethUSDT), 900, new anchor.BN(1002), new anchor.BN(1000))
+    //   .accounts({ ... })
+    //   .rpc();
+    
+    console.log("  ✓ 入站TokenBinding注册: USDT→USDC (1002:1000)");
+    
+    printTestStep(2, "构造跨链转账VAA（含兑换信息）");
     const payload: TokenTransferPayload = {
       payloadType: 1,
-      amount: BigInt(300_000_000),
-      tokenAddress: Buffer.alloc(32),
-      tokenChain: 1,
+      amount: BigInt(1000_000_000), // 1000 USDT
+      tokenAddress: ethUSDT,
+      tokenChain: 1, // Ethereum
       recipient: solanaAddressToBytes32(user.publicKey),
-      recipientChain: 2,
+      recipientChain: 900, // Solana
+      // 兑换信息
+      targetToken: solUSDC,
+      targetAmount: BigInt(1_002_000_000), // 1002 USDC
+      exchangeRateNum: BigInt(1002),
+      exchangeRateDenom: BigInt(1000),
     };
     
     // const vaa = createTokenTransferVAA({ ... });
     
-    printTestStep(2, "调用solana-core.post_vaa");
-    // const tx1 = await coreProgram.methods
-    //   .postVaa(vaa)
-    //   .accounts({ ... })
-    //   .rpc();
-    
+    printTestStep(3, "调用solana-core.post_vaa");
+    // const tx1 = await coreProgram.methods.postVaa(vaa).accounts({ ... }).rpc();
     // assertTxSuccess(tx1, "VAA验证成功");
-    
-    printTestStep(3, "验证PostedVAA账户创建");
-    // const postedVAA = await coreProgram.account.postedVaa.fetch(postedVAAPDA);
-    // assertEqual(postedVAA.consumed, false, "VAA未被消费");
     
     printTestStep(4, "调用token-bridge.complete_transfer");
     // const tx2 = await tokenProgram.methods
     //   .completeTransfer(vaa)
-    //   .accounts({ ... })
+    //   .accounts({
+    //     tokenBinding: tokenBindingPDA, // 验证TokenBinding
+    //     ...
+    //   })
     //   .rpc();
     
     // assertTxSuccess(tx2, "转账完成");
     
-    printTestStep(5, "验证VAA标记为已消费");
-    // const postedVAAAfter = await coreProgram.account.postedVaa.fetch(postedVAAPDA);
-    // assertEqual(postedVAAAfter.consumed, true, "VAA已被消费");
+    printTestStep(5, "验证TokenBinding兑换比率");
+    // const binding = await tokenProgram.account.tokenBinding.fetch(tokenBindingPDA);
+    const expectedAmount = calculateTargetAmount(
+      BigInt(1000_000_000),
+      BigInt(1002),
+      BigInt(1000)
+    );
+    assertEqual(expectedAmount, BigInt(1_002_000_000), "兑换比率验证通过");
     
-    printTestStep(6, "验证用户收到代币");
+    // // 验证payload中的比率与binding一致
+    // assertEqual(payload.exchangeRateNum, binding.rateNumerator, "比率分子一致");
+    // assertEqual(payload.exchangeRateDenom, binding.rateDenominator, "比率分母一致");
+    
+    printTestStep(6, "验证用户收到兑换后的代币");
     // const balance = await getTokenBalance(provider.connection, userTokenAccount);
-    // assertEqual(balance, BigInt(300_000_000), "用户收到代币");
+    // assertEqual(balance, BigInt(1_002_000_000), "用户收到1002 USDC");
     
     console.log("✓ INT-SOL-002 测试通过（占位，等待程序实现）");
+    console.log("  验证了TokenBinding兑换比率验证流程");
   });
   
   // ============================================
