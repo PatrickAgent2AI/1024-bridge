@@ -180,6 +180,41 @@ export function getWrappedMetaPDA(
 }
 
 /**
+ * 获取TokenBinding PDA（新版本 - 支持多对多）
+ */
+export function getTokenBindingPDA(
+  programId: PublicKey,
+  sourceChain: number,
+  sourceToken: Buffer,
+  targetChain: number,
+  targetToken: Buffer
+): [PublicKey, number] {
+  const sourceChainBuffer = Buffer.alloc(2);
+  sourceChainBuffer.writeUInt16LE(sourceChain);
+  
+  const targetChainBuffer = Buffer.alloc(2);
+  targetChainBuffer.writeUInt16LE(targetChain);
+  
+  return derivePDA(
+    [
+      Buffer.from("TokenBinding"),
+      sourceChainBuffer,
+      sourceToken,
+      targetChainBuffer,
+      targetToken
+    ],
+    programId
+  );
+}
+
+/**
+ * 获取BridgeConfig PDA
+ */
+export function getBridgeConfigPDA(programId: PublicKey): [PublicKey, number] {
+  return derivePDA([Buffer.from("BridgeConfig")], programId);
+}
+
+/**
  * 断言交易成功
  */
 export function assertTxSuccess(signature: string, message?: string): void {

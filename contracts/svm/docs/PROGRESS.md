@@ -396,11 +396,13 @@ Solana模块完成度: 100% █████████████████�
 - 完成率: 100% ✅
 
 **token-bridge**:
-- 总任务数: 5
-- 已完成: 5
+- 总任务数: 8（原5个 + 新增3个接口）
+- 已完成: 5（旧版接口）
 - 进行中: 0
-- 待开始: 0
-- 完成率: 100% ✅
+- 待开始: 3（register_token_binding, set_exchange_rate, update_amm_config）
+- 完成率: 62.5% 🔄
+
+**注**: 新增3个接口对应新的代币绑定机制,需要在程序开发时实现
 
 ---
 
@@ -408,19 +410,20 @@ Solana模块完成度: 100% █████████████████�
 
 ### 3.1 测试总览
 
-**总测试用例**: 48个  
-**测试通过**: ✅ 48/48 (100%)  
+**总测试用例**: 70个（原47个 + 新增23个）  
+**测试通过**: ✅ 48/70 (68.6%) - 基础测试通过  
+**新增测试**: 📅 23/23 (100%) - 等待程序实现  
 **密码学实现**: ✅ 真实实现（secp256k1 + ECDSA）  
-**程序状态**: ✅ solana-core和token-bridge已实现
+**程序状态**: 🔄 solana-core已实现, token-bridge部分实现（需添加新接口）
 
 ```
-测试完成度: 100% ████████████████████████████████
+测试完成度: 68.6% ████████████████████░░░░░░░░░░░
 
 测试执行结果:
 ├── 密码学演示: ✅ 4/4 通过
 │   ├── Guardian密钥生成: ✅ 19个secp256k1密钥对
 │   ├── ECDSA签名验证: ✅ 真实椭圆曲线算法
-│   ├── VAA构造: ✅ 完整Wormhole格式
+│   ├── VAA构造: ✅ 完整Wormhole格式（支持新版payload）
 │   └── Guardian升级: ✅ 新旧Set生成验证
 │
 ├── solana-core测试: ✅ 20/20 通过
@@ -429,15 +432,27 @@ Solana模块完成度: 100% █████████████████�
 │   ├── post_vaa: ✅ VAA解析和签名验证
 │   └── update_guardian_set: ✅ 升级流程验证
 │
-├── token-bridge测试: ✅ 12/12 通过
-│   ├── transfer_tokens: ✅ 5个测试通过
+├── token-bridge测试: 🔄 12/35 (34.3%)
+│   ├── transfer_tokens: ✅ 5个测试通过（已更新支持兑换）
 │   ├── complete_transfer: ✅ 5个测试通过
-│   └── create_wrapped: ✅ 2个测试通过
+│   ├── create_wrapped: ✅ 2个测试通过（已弃用，向后兼容）
+│   ├── register_token_binding: 📅 5个（新增，等待程序）
+│   ├── register_bidirectional_binding: 📅 5个（新增，等待程序）
+│   ├── set_exchange_rate: 📅 5个（新增，等待程序）
+│   ├── update_amm_config: 📅 3个（新增，等待程序）
+│   └── complete_transfer兑换验证: 📅 5个（新增，等待程序）
 │
 ├── 集成测试: ✅ 6/6 通过
 │   └── 跨程序调用和Guardian升级
 │
 └── E2E测试: ✅ 5/5 通过（占位符）
+
+📊 新增测试用例: 23个
+   - register_token_binding: 5个
+   - register_bidirectional_binding: 5个  
+   - set_exchange_rate: 5个
+   - update_amm_config: 3个
+   - complete_transfer兑换验证: 5个
 ```
 
 ---
@@ -485,10 +500,17 @@ Solana模块完成度: 100% █████████████████�
 | transfer_tokens指令 | 5 | 0 | 0 | 0 | 📅 |
 | complete_transfer指令 | 5 | 0 | 0 | 0 | 📅 |
 | create_wrapped指令 | 2 | 0 | 0 | 0 | 📅 |
-| **小计** | **12** | **0** | **0** | **0** | **📅** |
+| **register_token_binding指令** | **5** | **5** | **0** | **0** | **✅框架/📅执行** |
+| **register_bidirectional_binding指令** | **5** | **5** | **0** | **0** | **✅框架/📅执行** |
+| **set_exchange_rate指令** | **5** | **5** | **0** | **0** | **✅框架/📅执行** |
+| **update_amm_config指令** | **3** | **3** | **0** | **0** | **✅框架/📅执行** |
+| **complete_transfer兑换验证** | **5** | **5** | **0** | **0** | **✅框架/📅执行** |
+| **小计** | **35** | **23** | **0** | **0** | **66%框架完成** |
 
 **测试用例列表**:
-- [ ] UNIT-TB-001: 正常锁定SPL代币
+
+**基础功能（原有）**:
+- [ ] UNIT-TB-001: 正常锁定SPL代币（1:1兑换）
 - [ ] UNIT-TB-002: 授权不足
 - [ ] UNIT-TB-003: 余额不足
 - [ ] UNIT-TB-004: 手续费不足
@@ -498,8 +520,39 @@ Solana模块完成度: 100% █████████████████�
 - [ ] UNIT-TB-008: VAA验证失败
 - [ ] UNIT-TB-009: 目标链不匹配
 - [ ] UNIT-TB-010: 余额不足（custody）
-- [ ] UNIT-TB-011: 创建包装代币
-- [ ] UNIT-TB-012: 重复创建失败
+
+**register_token_binding（新增）**:
+- [x] UNIT-TB-011: 正常注册单向代币绑定（框架完成）
+- [x] UNIT-TB-012: 重复注册失败（框架完成）
+- [x] UNIT-TB-013: 非管理员调用失败（框架完成）
+- [x] UNIT-TB-014: 注册不同代币兑换对（多对多）（框架完成）
+- [x] UNIT-TB-030: 注册出站和入站binding（双向）（框架完成）
+
+**set_exchange_rate（新增）**:
+- [x] UNIT-TB-015: 设置1:1兑换比率（框架完成）
+- [x] UNIT-TB-016: 设置自定义兑换比率（框架完成）
+- [x] UNIT-TB-017: 分母为0失败（框架完成）
+- [x] UNIT-TB-018: TokenBinding不存在失败（框架完成）
+- [x] UNIT-TB-019: 非管理员调用失败（框架完成）
+
+**update_amm_config（新增）**:
+- [x] UNIT-TB-020: 启用外部AMM定价（框架完成）
+- [x] UNIT-TB-021: 禁用外部AMM定价（框架完成）
+- [x] UNIT-TB-022: 非管理员调用失败（框架完成）
+
+**complete_transfer兑换验证（新增）**:
+- [x] UNIT-TB-025: 兑换比率验证失败（框架完成）
+- [x] UNIT-TB-026: 目标代币不匹配（框架完成）
+- [x] UNIT-TB-027: VAA验证失败（引用UNIT-TB-008）
+- [x] UNIT-TB-028: 目标链不匹配（引用UNIT-TB-009）
+- [x] UNIT-TB-029: custody余额不足（引用UNIT-TB-010）
+
+**register_bidirectional_binding（新增）**:
+- [x] UNIT-TB-031: 双向注册同币种（1:1）（框架完成）
+- [x] UNIT-TB-032: 双向注册不同币种（框架完成）
+- [x] UNIT-TB-033: 双向不对称兑换比率（框架完成）
+- [x] UNIT-TB-034: 验证自动创建两个binding（框架完成）
+- [x] UNIT-TB-035: 非管理员调用失败（框架完成）
 
 ---
 
@@ -643,8 +696,118 @@ Solana模块完成度: 100% █████████████████�
 
 | 日期 | 版本 | 更新内容 | 更新人 |
 |------|------|---------|--------|
+| 2025-11-08 | v1.2 | 根据API-SPEC.md和TEST-PLAN.md修订测试套件代码 | Cursor Agent |
 | 2025-11-08 | v1.1 | 新增设计变更说明，更新为代币绑定注册机制 | Solana团队 |
 | 2025-11-08 | v1.0 | 初始文档创建 | Solana团队 |
+
+---
+
+### 7.1 v1.2 测试套件修订详情（2025-11-08）
+
+**修订范围**: 根据文档要求更新测试代码以支持新的代币绑定机制
+
+#### 修订文件列表
+
+1. **tests/utils/vaa.ts**
+   - ✅ 扩展`TokenTransferPayload`接口,添加兑换相关字段:
+     - `targetToken`: 目标链代币地址（32字节）
+     - `targetAmount`: 目标链接收数量
+     - `exchangeRateNum`: 兑换比率分子
+     - `exchangeRateDenom`: 兑换比率分母
+   - ✅ 更新`serializeTokenTransferPayload`函数,支持新旧版本payload（77/133字节）
+   - ✅ 向后兼容旧版本payload
+
+2. **tests/utils/helpers.ts**
+   - ✅ 添加`getTokenBindingPDA`函数（支持多对多映射）
+   - ✅ 添加`getBridgeConfigPDA`函数
+   - ✅ PDA计算包含完整的4元组: `[source_chain, source_token, target_chain, target_token]`
+
+3. **tests/unit/token-bridge.test.ts**
+   - ✅ 新增测试组: **register_token_binding** (UNIT-TB-011~014, 030)
+     - UNIT-TB-011: 正常注册单向代币绑定
+     - UNIT-TB-012: 重复注册失败
+     - UNIT-TB-013: 非管理员调用失败
+     - UNIT-TB-014: 注册不同代币兑换对（多对多）
+     - UNIT-TB-030: 注册出站和入站binding（双向）
+   
+   - ✅ 新增测试组: **register_bidirectional_binding** (UNIT-TB-031~035)
+     - UNIT-TB-031: 双向注册同币种（1:1）
+     - UNIT-TB-032: 双向注册不同币种
+     - UNIT-TB-033: 双向不对称兑换比率
+     - UNIT-TB-034: 验证自动创建两个binding
+     - UNIT-TB-035: 非管理员调用失败
+   
+   - ✅ 新增测试组: **set_exchange_rate** (UNIT-TB-015~019)
+     - UNIT-TB-015: 设置1:1兑换比率
+     - UNIT-TB-016: 设置自定义兑换比率
+     - UNIT-TB-017: 分母为0失败
+     - UNIT-TB-018: TokenBinding不存在失败
+     - UNIT-TB-019: 非管理员调用失败
+   
+   - ✅ 新增测试组: **update_amm_config** (UNIT-TB-020~022)
+     - UNIT-TB-020: 启用外部AMM定价（预留接口）
+     - UNIT-TB-021: 禁用外部AMM定价
+     - UNIT-TB-022: 非管理员调用失败
+   
+   - ✅ 新增测试组: **complete_transfer兑换验证** (UNIT-TB-025~029)
+     - UNIT-TB-025: 兑换比率验证失败
+     - UNIT-TB-026: 目标代币不匹配
+     - UNIT-TB-027~029: 引用已有测试
+   
+   - ✅ 更新测试: **transfer_tokens** (UNIT-TB-001)
+     - 标题更新为"正常锁定SPL代币（1:1兑换）"
+     - 测试逻辑包含TokenBinding查询和兑换逻辑
+
+#### 测试用例统计更新
+
+| 测试类型 | 旧版本 | 新版本 | 增加 |
+|---------|--------|--------|------|
+| token-bridge单元测试 | 12个 | 35个 | +23个 |
+| 总测试用例数 | 47个 | 70个 | +23个 |
+
+#### 新增测试覆盖功能
+
+1. **代币绑定注册机制**
+   - 单向binding注册（register_token_binding）
+   - 双向binding注册（register_bidirectional_binding）
+   - 多对多代币映射支持
+   - 出站/入站binding验证
+
+2. **跨链兑换功能**
+   - 兑换比率管理（set_exchange_rate）
+   - 兑换比率验证（complete_transfer）
+   - 目标代币匹配验证
+   - 不对称兑换比率支持
+
+3. **AMM集成预留**
+   - 外部AMM配置管理（update_amm_config）
+   - 固定比率/动态定价切换
+
+4. **权限控制**
+   - 管理员权限验证
+   - 非管理员调用失败测试
+
+#### 测试实现状态
+
+- ✅ 测试用例框架: 100%完成（70个用例）
+- ✅ 测试工具函数: 100%完成（PDA计算、Payload序列化）
+- 📅 程序实现: 0%（等待程序开发）
+- 📅 测试执行: 0%（等待程序完成）
+
+#### 与文档的一致性验证
+
+| 文档 | 覆盖率 | 说明 |
+|------|--------|------|
+| API-SPEC.md | 100% | 所有新增接口都有对应测试用例 |
+| TEST-PLAN.md | 100% | 测试用例编号和描述完全匹配 |
+| PROGRESS.md | 100% | 进度追踪已更新 |
+
+#### 后续工作
+
+1. 等待solana-core和token-bridge程序实现完成
+2. 执行测试套件验证程序功能
+3. 根据测试结果修复程序bug
+4. 更新测试覆盖率报告
 
 ---
 
