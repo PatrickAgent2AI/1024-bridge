@@ -44,10 +44,10 @@
 
 | 测试类型 | 覆盖率目标 | 用例数 | 预计时间 |
 |---------|-----------|--------|---------|
-| **程序单元测试** | 90%代码 | 30个 | 15分钟 |
-| **集成测试** | 80%流程 | 12个 | 20分钟 |
-| **E2E测试** | 100%关键流程 | 5个 | 25分钟 |
-| **总计** | - | **47个** | **60分钟** |
+| **程序单元测试** | 90%代码 | 53个 | 22分钟 |
+| **集成测试** | 80%流程 | 15个 | 25分钟 |
+| **E2E测试** | 100%关键流程 | 8个 | 30分钟 |
+| **总计** | - | **76个** | **77分钟** |
 
 ---
 
@@ -306,22 +306,34 @@ async fn test_update_guardian_set() {
 
 | 测试ID | 测试场景 | 优先级 |
 |-------|---------|--------|
-| UNIT-TB-001 | 正常锁定SPL代币 | P0 |
-| UNIT-TB-002 | 授权不足 | P0 |
-| UNIT-TB-003 | 余额不足 | P0 |
-| UNIT-TB-004 | 手续费不足 | P0 |
-| UNIT-TB-005 | 无效目标链 | P1 |
+| UNIT-TB-001 | 正常锁定SPL代币（1:1兑换） | P0 |
+| UNIT-TB-002 | 跨链兑换不同代币（USDC→USDT） | P0 |
+| UNIT-TB-003 | TokenBinding不存在失败 | P0 |
+| UNIT-TB-004 | TokenBinding未启用失败 | P0 |
+| UNIT-TB-005 | 授权不足 | P0 |
+| UNIT-TB-006 | 余额不足 | P0 |
+| UNIT-TB-007 | 手续费不足 | P0 |
+| UNIT-TB-008 | 无效目标链 | P1 |
 
-**测试示例 UNIT-TB-001**:
+**测试示例 UNIT-TB-001: 正常锁定SPL代币（1:1兑换）**:
 ```rust
 #[tokio::test]
-async fn test_transfer_tokens() {
+async fn test_transfer_tokens_one_to_one() {
     let program = setup_token_bridge_program().await;
     
     // 创建测试代币
-    let mint = create_test_mint(&program, 6).await?;
-    let user_token_account = create_token_account(&program, &mint, &user).await?;
-    mint_to(&program, &mint, &user_token_account, 1000_000_000).await?;
+    let sol_usdc_mint = create_test_mint(&program, 6).await?;
+    let user_token_account = create_token_account(&program, &sol_usdc_mint, &user).await?;
+    mint_to(&program, &sol_usdc_mint, &user_token_account, 1000_000_000).await?;
+    
+    // 注册TokenBinding（Solana USDC → Ethereum USDC, 1:1）
+    let eth_usdc = eth_usdc_address_bytes32();
+    register_token_binding(
+        &program,
+        2, sol_usdc_mint.to_bytes(),
+        1, eth_usdc,
+        1, 1  // 1:1 rate
+    ).await?;
     
     let amount = 500_000_000;  // 500 USDC
     let target_chain = 1;       // Ethereum
@@ -332,9 +344,11 @@ async fn test_transfer_tokens() {
         .transfer_tokens(amount, target_chain, recipient)
         .accounts({
             bridge: bridge_pda,
+            token_binding: token_binding_pda,
             token_account: user_token_account,
             custody_account: custody_pda,
             token_authority: user.pubkey(),
+            token_mint: sol_usdc_mint,
             token_program: token_program::ID,
         })
         .signer(&user)
@@ -352,6 +366,81 @@ async fn test_transfer_tokens() {
     // 验证消息发送
     let sequence = program.account::<Sequence>(sequence_pda).await?;
     assert_eq!(sequence.sequence, 1);
+    
+    // 验证payload包含兑换信息
+    let message = program.account::<PostedMessage>(message_pda).await?;
+    let payload = TokenTransferPayload::deserialize(&message.payload)?;
+    assert_eq!(payload.amount, 500_000_000);
+    assert_eq!(payload.target_token, eth_usdc);
+    assert_eq!(payload.target_amount, 500_000_000);  // 1:1
+    assert_eq!(payload.exchange_rate_num, 1);
+    assert_eq!(payload.exchange_rate_denom, 1);
+}
+```
+
+**测试示例 UNIT-TB-002: 跨链兑换不同代币**:
+```rust
+#[tokio::test]
+async fn test_transfer_tokens_with_exchange() {
+    let program = setup_token_bridge_program().await;
+    
+    // Solana USDC → Ethereum USDT (1:0.998兑换)
+    let sol_usdc_mint = create_test_mint(&program, 6).await?;
+    let user_token_account = create_token_account(&program, &sol_usdc_mint, &user).await?;
+    mint_to(&program, &sol_usdc_mint, &user_token_account, 1000_000_000).await?;
+    
+    // 注册TokenBinding（USDC → USDT, 998:1000）
+    let eth_usdt = eth_usdt_address_bytes32();
+    register_token_binding(
+        &program,
+        2, sol_usdc_mint.to_bytes(),
+        1, eth_usdt,
+        998, 1000  // 1 USDC = 0.998 USDT
+    ).await?;
+    
+    let amount = 1000_000_000;  // 1000 USDC
+    
+    // 执行转账
+    let tx = program.methods()
+        .transfer_tokens(amount, 1, eth_recipient)
+        .accounts({ ... })
+        .rpc()
+        .await?;
+    
+    // 验证payload
+    let message = program.account::<PostedMessage>(message_pda).await?;
+    let payload = TokenTransferPayload::deserialize(&message.payload)?;
+    assert_eq!(payload.amount, 1000_000_000);  // 源链1000 USDC
+    assert_eq!(payload.target_token, eth_usdt);  // 目标是USDT
+    assert_eq!(payload.target_amount, 998_000_000);  // 目标链998 USDT
+    assert_eq!(payload.exchange_rate_num, 998);
+    assert_eq!(payload.exchange_rate_denom, 1000);
+}
+```
+
+**测试示例 UNIT-TB-003: TokenBinding不存在失败**:
+```rust
+#[tokio::test]
+async fn test_transfer_tokens_no_binding() {
+    let program = setup_token_bridge_program().await;
+    
+    // 未注册TokenBinding的代币
+    let unknown_mint = create_test_mint(&program, 6).await?;
+    
+    let result = program.methods()
+        .transfer_tokens(1000_000_000, 1, eth_recipient)
+        .accounts({
+            token_binding: token_binding_pda,  // PDA不存在
+            ...
+        })
+        .rpc()
+        .await;
+    
+    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err().to_string(),
+        "Token binding not found"
+    );
 }
 ```
 
@@ -361,30 +450,47 @@ async fn test_transfer_tokens() {
 
 | 测试ID | 测试场景 | 优先级 |
 |-------|---------|--------|
-| UNIT-TB-006 | 解锁原生SPL代币 | P0 |
-| UNIT-TB-007 | 铸造包装代币 | P0 |
-| UNIT-TB-008 | VAA验证失败 | P0 |
-| UNIT-TB-009 | 目标链不匹配 | P0 |
-| UNIT-TB-010 | 余额不足（custody） | P0 |
+| UNIT-TB-009 | 解锁原生SPL代币（1:1兑换） | P0 |
+| UNIT-TB-010 | 跨链兑换不同代币接收 | P0 |
+| UNIT-TB-025 | 兑换比率验证失败 | P0 |
+| UNIT-TB-026 | 目标代币不匹配 | P0 |
+| UNIT-TB-027 | VAA验证失败 | P0 |
+| UNIT-TB-028 | 目标链不匹配 | P0 |
+| UNIT-TB-029 | custody余额不足 | P0 |
 
-**测试示例 UNIT-TB-006**:
+**测试示例 UNIT-TB-009: 解锁原生SPL代币（1:1兑换）**:
 ```rust
 #[tokio::test]
-async fn test_complete_transfer_unlock() {
+async fn test_complete_transfer_unlock_one_to_one() {
     let program = setup_token_bridge_program().await;
     
-    // 预先锁定一些代币到custody
+    // 预先在custody锁定代币
+    let sol_usdc_mint = create_test_mint(&program, 6).await?;
     let custody_amount = 1000_000_000;
-    setup_custody_balance(&program, &mint, custody_amount).await?;
+    setup_custody_balance(&program, &sol_usdc_mint, custody_amount).await?;
+    
+    // 注册TokenBinding（Ethereum USDC → Solana USDC, 1:1）
+    let eth_usdc = eth_usdc_address_bytes32();
+    register_token_binding(
+        &program,
+        1, eth_usdc,  // Ethereum USDC
+        2, sol_usdc_mint.to_bytes(),  // Solana USDC
+        1, 1  // 1:1
+    ).await?;
     
     // 构造来自Ethereum的转账VAA
     let payload = TokenTransferPayload {
         payload_type: 1,
-        amount: 500_000_000,
-        token_address: mint.pubkey().to_bytes(),
-        token_chain: 2,  // Solana原生
+        amount: 500_000_000,  // 源链500 USDC
+        token_address: eth_usdc,
+        token_chain: 1,  // Ethereum
         recipient: user.pubkey().to_bytes(),
         recipient_chain: 2,  // Solana
+        // 新增兑换字段
+        target_token: sol_usdc_mint.to_bytes(),
+        target_amount: 500_000_000,  // 目标链500 USDC (1:1)
+        exchange_rate_num: 1,
+        exchange_rate_denom: 1,
     };
     
     let vaa = create_token_transfer_vaa(
@@ -399,8 +505,10 @@ async fn test_complete_transfer_unlock() {
         .accounts({
             bridge: bridge_pda,
             posted_vaa: posted_vaa_pda,
+            token_binding: token_binding_pda,
             recipient_account: user_token_account,
-            custody_or_mint: custody_pda,
+            custody_account: custody_pda,
+            target_token_mint: sol_usdc_mint,
             token_program: token_program::ID,
         })
         .rpc()
@@ -420,47 +528,405 @@ async fn test_complete_transfer_unlock() {
 }
 ```
 
+**测试示例 UNIT-TB-010: 跨链兑换不同代币接收**:
+```rust
+#[tokio::test]
+async fn test_complete_transfer_different_token() {
+    let program = setup_token_bridge_program().await;
+    
+    // Ethereum USDT → Solana USDC (1:1.002兑换，USDT稍便宜)
+    let sol_usdc_mint = create_test_mint(&program, 6).await?;
+    setup_custody_balance(&program, &sol_usdc_mint, 2000_000_000).await?;
+    
+    let eth_usdt = eth_usdt_address_bytes32();
+    register_token_binding(
+        &program,
+        1, eth_usdt,  // Ethereum USDT
+        2, sol_usdc_mint.to_bytes(),  // Solana USDC
+        1002, 1000  // 1 USDT = 1.002 USDC
+    ).await?;
+    
+    // VAA payload
+    let payload = TokenTransferPayload {
+        payload_type: 1,
+        amount: 1000_000_000,  // 1000 USDT
+        token_address: eth_usdt,
+        token_chain: 1,
+        recipient: user.pubkey().to_bytes(),
+        recipient_chain: 2,
+        target_token: sol_usdc_mint.to_bytes(),
+        target_amount: 1_002_000_000,  // 1002 USDC
+        exchange_rate_num: 1002,
+        exchange_rate_denom: 1000,
+    };
+    
+    let vaa = create_token_transfer_vaa(
+        emitter_chain: 1,
+        payload: payload.serialize(),
+        guardians: &test_guardians[0..13],
+    );
+    
+    // 完成转账
+    let tx = program.methods()
+        .complete_transfer(vaa)
+        .accounts({ ... })
+        .rpc()
+        .await?;
+    
+    // 验证用户收到兑换后的代币
+    let user_account = get_token_account(&program, user_token_account).await?;
+    assert_eq!(user_account.amount, 1_002_000_000);  // 1002 USDC
+}
+```
+
+**测试示例 UNIT-TB-025: 兑换比率验证失败**:
+```rust
+#[tokio::test]
+async fn test_complete_transfer_invalid_exchange_rate() {
+    let program = setup_token_bridge_program().await;
+    
+    // 注册1:1兑换比率
+    register_token_binding(&program, 1, eth_usdc, 2, sol_usdc, 1, 1).await?;
+    
+    // VAA包含错误的兑换比率
+    let payload = TokenTransferPayload {
+        amount: 1000_000_000,
+        target_amount: 1100_000_000,  // 错误：声称1:1.1
+        exchange_rate_num: 11,  // 错误的比率
+        exchange_rate_denom: 10,
+        ...
+    };
+    
+    let vaa = create_token_transfer_vaa(...);
+    
+    let result = program.methods()
+        .complete_transfer(vaa)
+        .accounts({ ... })
+        .rpc()
+        .await;
+    
+    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err().to_string(),
+        "Invalid exchange rate"
+    );
+}
+```
+
 ---
 
-#### 2.2.3 create_wrapped指令测试
+#### 2.2.3 register_token_binding指令测试
 
 | 测试ID | 测试场景 | 优先级 |
 |-------|---------|--------|
-| UNIT-TB-011 | 创建包装代币 | P0 |
-| UNIT-TB-012 | 重复创建失败 | P0 |
+| UNIT-TB-011 | 正常注册单向代币绑定 | P0 |
+| UNIT-TB-012 | 重复注册失败 | P0 |
+| UNIT-TB-013 | 非管理员调用失败 | P0 |
+| UNIT-TB-014 | 注册不同代币兑换对（多对多） | P0 |
+| UNIT-TB-030 | 注册出站和入站binding（双向） | P0 |
 
-**测试示例 UNIT-TB-011**:
+#### 2.2.4 register_bidirectional_binding指令测试
+
+| 测试ID | 测试场景 | 优先级 |
+|-------|---------|--------|
+| UNIT-TB-031 | 双向注册同币种（1:1） | P0 |
+| UNIT-TB-032 | 双向注册不同币种 | P0 |
+| UNIT-TB-033 | 双向不对称兑换比率 | P0 |
+| UNIT-TB-034 | 验证自动创建两个binding | P0 |
+| UNIT-TB-035 | 非管理员调用失败 | P0 |
+
+#### 2.2.5 set_exchange_rate指令测试
+
+| 测试ID | 测试场景 | 优先级 |
+|-------|---------|--------|
+| UNIT-TB-015 | 设置1:1兑换比率 | P0 |
+| UNIT-TB-016 | 设置自定义兑换比率 | P0 |
+| UNIT-TB-017 | 分母为0失败 | P0 |
+| UNIT-TB-018 | TokenBinding不存在失败 | P0 |
+| UNIT-TB-019 | 非管理员调用失败 | P0 |
+
+#### 2.2.6 update_amm_config指令测试
+
+| 测试ID | 测试场景 | 优先级 |
+|-------|---------|--------|
+| UNIT-TB-020 | 启用外部AMM定价 | P1 |
+| UNIT-TB-021 | 禁用外部AMM定价 | P1 |
+| UNIT-TB-022 | 非管理员调用失败 | P1 |
+
+#### 2.2.6 create_wrapped指令测试（已弃用）
+
+| 测试ID | 测试场景 | 优先级 |
+|-------|---------|--------|
+| ~~UNIT-TB-023~~ | ~~创建包装代币~~ | ~~已弃用~~ |
+| ~~UNIT-TB-024~~ | ~~重复创建失败~~ | ~~已弃用~~ |
+
+**测试示例 UNIT-TB-011: 正常注册代币绑定**:
 ```rust
 #[tokio::test]
-async fn test_create_wrapped() {
+async fn test_register_token_binding() {
     let program = setup_token_bridge_program().await;
     
     // Ethereum USDC地址
     let eth_usdc = [0xA0, 0xb8, 0x69, 0x91, ...];  // 32字节
     
+    // Solana USDC Mint
+    let sol_usdc = Pubkey::from_str("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v").unwrap();
+    
     let tx = program.methods()
-        .create_wrapped(1, eth_usdc, 6)
+        .register_token_binding(
+            1,  // source_chain: Ethereum
+            eth_usdc,
+            2,  // target_chain: Solana
+            sol_usdc
+        )
         .accounts({
-            wrapped_mint: wrapped_mint_pda,
-            wrapped_meta: wrapped_meta_pda,
+            bridge_config: bridge_config_pda,
+            token_binding: token_binding_pda,
+            authority: authority.pubkey(),
             payer: payer.pubkey(),
-            token_program: token_program::ID,
             system_program: system_program::ID,
         })
-        .signer(&payer)
+        .signers([&authority, &payer])
         .rpc()
         .await?;
     
-    // 验证Mint创建
-    let mint = get_mint(&program, wrapped_mint_pda).await?;
-    assert_eq!(mint.decimals, 6);
-    assert_eq!(mint.mint_authority, Some(token_bridge_authority_pda));
+    // 验证TokenBinding账户
+    let binding = program.account::<TokenBinding>(token_binding_pda).await?;
+    assert_eq!(binding.source_chain, 1);
+    assert_eq!(binding.source_token, eth_usdc);
+    assert_eq!(binding.target_chain, 2);
+    assert_eq!(binding.target_token, sol_usdc.to_bytes());
+    assert_eq!(binding.rate_numerator, 1);  // 默认1:1
+    assert_eq!(binding.rate_denominator, 1);
+    assert_eq!(binding.enabled, true);
+    assert_eq!(binding.use_external_price, false);
+}
+```
+
+**测试示例 UNIT-TB-014: 注册不同代币兑换对（多对多）**:
+```rust
+#[tokio::test]
+async fn test_register_multiple_target_tokens() {
+    let program = setup_token_bridge_program().await;
     
-    // 验证WrappedMeta
-    let meta = program.account::<WrappedMeta>(wrapped_meta_pda).await?;
-    assert_eq!(meta.original_chain, 1);
-    assert_eq!(meta.original_address, eth_usdc);
-    assert_eq!(meta.decimals, 6);
+    let sol_usdc = sol_usdc_address();
+    let eth_usdc = eth_usdc_address();
+    let eth_usdt = eth_usdt_address();
+    let eth_dai = eth_dai_address();
+    
+    // 同一源代币注册多个目标代币
+    // Solana USDC → Ethereum USDC
+    register_token_binding(&program, 2, sol_usdc, 1, eth_usdc).await?;
+    
+    // Solana USDC → Ethereum USDT
+    register_token_binding(&program, 2, sol_usdc, 1, eth_usdt).await?;
+    
+    // Solana USDC → Ethereum DAI
+    register_token_binding(&program, 2, sol_usdc, 1, eth_dai).await?;
+    
+    // 验证所有binding都存在
+    let binding_usdc = get_token_binding(&program, 2, sol_usdc, 1, eth_usdc).await?;
+    assert_eq!(binding_usdc.target_token, eth_usdc);
+    
+    let binding_usdt = get_token_binding(&program, 2, sol_usdc, 1, eth_usdt).await?;
+    assert_eq!(binding_usdt.target_token, eth_usdt);
+    
+    let binding_dai = get_token_binding(&program, 2, sol_usdc, 1, eth_dai).await?;
+    assert_eq!(binding_dai.target_token, eth_dai);
+}
+```
+
+**测试示例 UNIT-TB-030: 注册出站和入站binding（双向）**:
+```rust
+#[tokio::test]
+async fn test_register_outbound_and_inbound_bindings() {
+    let program = setup_token_bridge_program().await;
+    
+    // 在Solana链上注册双向binding
+    // 1. 出站: Solana USDC → Ethereum USDC
+    register_token_binding(&program, 2, sol_usdc, 1, eth_usdc).await?;
+    
+    // 2. 入站: Ethereum USDC → Solana USDC (用于验证)
+    register_token_binding(&program, 1, eth_usdc, 2, sol_usdc).await?;
+    
+    // 验证出站binding
+    let outbound = get_token_binding(&program, 2, sol_usdc, 1, eth_usdc).await?;
+    assert_eq!(outbound.source_chain, 2);
+    assert_eq!(outbound.target_chain, 1);
+    
+    // 验证入站binding
+    let inbound = get_token_binding(&program, 1, eth_usdc, 2, sol_usdc).await?;
+    assert_eq!(inbound.source_chain, 1);
+    assert_eq!(inbound.target_chain, 2);
+}
+```
+
+---
+
+**测试示例 UNIT-TB-031: 双向注册同币种（1:1）**:
+```rust
+#[tokio::test]
+async fn test_register_bidirectional_same_token() {
+    let program = setup_token_bridge_program().await;
+    
+    let tx = program.methods()
+        .register_bidirectional_binding(
+            2, sol_usdc,      // local
+            1, eth_usdc,      // remote
+            1, 1,             // outbound rate 1:1
+            1, 1,             // inbound rate 1:1
+        )
+        .accounts({
+            bridge_config: bridge_config_pda,
+            outbound_binding: outbound_pda,
+            inbound_binding: inbound_pda,
+            authority: authority.pubkey(),
+            payer: payer.pubkey(),
+            system_program: system_program::ID,
+        })
+        .signers([&authority, &payer])
+        .rpc()
+        .await?;
+    
+    // 验证出站binding
+    let outbound = program.account::<TokenBinding>(outbound_pda).await?;
+    assert_eq!(outbound.source_chain, 2);
+    assert_eq!(outbound.source_token, sol_usdc);
+    assert_eq!(outbound.target_chain, 1);
+    assert_eq!(outbound.target_token, eth_usdc);
+    assert_eq!(outbound.rate_numerator, 1);
+    assert_eq!(outbound.rate_denominator, 1);
+    
+    // 验证入站binding
+    let inbound = program.account::<TokenBinding>(inbound_pda).await?;
+    assert_eq!(inbound.source_chain, 1);
+    assert_eq!(inbound.source_token, eth_usdc);
+    assert_eq!(inbound.target_chain, 2);
+    assert_eq!(inbound.target_token, sol_usdc);
+    assert_eq!(inbound.rate_numerator, 1);
+    assert_eq!(inbound.rate_denominator, 1);
+}
+```
+
+**测试示例 UNIT-TB-033: 双向不对称兑换比率**:
+```rust
+#[tokio::test]
+async fn test_register_bidirectional_asymmetric_rates() {
+    let program = setup_token_bridge_program().await;
+    
+    // 出站和入站使用不同的兑换比率（考虑手续费等）
+    let tx = program.methods()
+        .register_bidirectional_binding(
+            2, sol_usdc,
+            1, eth_usdt,
+            998, 1000,  // 出站: 1 USDC = 0.998 USDT
+            1002, 1000, // 入站: 1 USDT = 1.002 USDC (补偿)
+        )
+        .accounts({ ... })
+        .rpc()
+        .await?;
+    
+    let outbound = program.account::<TokenBinding>(outbound_pda).await?;
+    assert_eq!(outbound.rate_numerator, 998);
+    assert_eq!(outbound.rate_denominator, 1000);
+    
+    let inbound = program.account::<TokenBinding>(inbound_pda).await?;
+    assert_eq!(inbound.rate_numerator, 1002);
+    assert_eq!(inbound.rate_denominator, 1000);
+    
+    // 验证兑换计算
+    let outbound_amount = 1000_000_000 * 998 / 1000;
+    assert_eq!(outbound_amount, 998_000_000);  // 0.998
+    
+    let inbound_amount = 1000_000_000 * 1002 / 1000;
+    assert_eq!(inbound_amount, 1_002_000_000);  // 1.002
+}
+```
+
+**测试示例 UNIT-TB-015: 设置1:1兑换比率**:
+```rust
+#[tokio::test]
+async fn test_set_exchange_rate_one_to_one() {
+    let program = setup_token_bridge_program().await;
+    
+    // 先注册TokenBinding
+    register_token_binding(&program, sol_usdc, eth_usdc).await?;
+    
+    // 设置兑换比率
+    let tx = program.methods()
+        .set_exchange_rate(
+            2,  // Solana
+            sol_usdc.to_bytes(),
+            1,  // Ethereum
+            1,  // rate_numerator
+            1   // rate_denominator
+        )
+        .accounts({
+            token_binding: token_binding_pda,
+            authority: authority.pubkey(),
+        })
+        .signer(&authority)
+        .rpc()
+        .await?;
+    
+    let binding = program.account::<TokenBinding>(token_binding_pda).await?;
+    assert_eq!(binding.rate_numerator, 1);
+    assert_eq!(binding.rate_denominator, 1);
+    
+    // 验证兑换计算
+    let source_amount = 1000_000_000u64;
+    let target_amount = source_amount * binding.rate_numerator / binding.rate_denominator;
+    assert_eq!(target_amount, 1000_000_000u64);  // 1:1
+}
+```
+
+**测试示例 UNIT-TB-016: 设置自定义兑换比率**:
+```rust
+#[tokio::test]
+async fn test_set_custom_exchange_rate() {
+    let program = setup_token_bridge_program().await;
+    
+    // 设置 1 USDC = 0.998 USDT
+    let tx = program.methods()
+        .set_exchange_rate(
+            2,    // Solana
+            sol_usdc.to_bytes(),
+            1,    // Ethereum
+            998,  // rate_numerator
+            1000  // rate_denominator
+        )
+        .accounts({ ... })
+        .rpc()
+        .await?;
+    
+    let binding = program.account::<TokenBinding>(token_binding_pda).await?;
+    assert_eq!(binding.rate_numerator, 998);
+    assert_eq!(binding.rate_denominator, 1000);
+    
+    // 验证兑换计算
+    let source_amount = 1000_000_000u64;  // 1000 USDC
+    let target_amount = source_amount * 998 / 1000;
+    assert_eq!(target_amount, 998_000_000u64);  // 998 USDT
+}
+```
+
+**测试示例 UNIT-TB-017: 分母为0失败**:
+```rust
+#[tokio::test]
+async fn test_set_exchange_rate_zero_denominator() {
+    let program = setup_token_bridge_program().await;
+    
+    let result = program.methods()
+        .set_exchange_rate(2, sol_usdc.to_bytes(), 1, 1, 0)  // 分母=0
+        .accounts({ ... })
+        .rpc()
+        .await;
+    
+    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err().to_string(),
+        "Exchange rate denominator cannot be zero"
+    );
 }
 ```
 

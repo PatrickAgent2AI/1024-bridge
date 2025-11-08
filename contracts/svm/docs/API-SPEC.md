@@ -30,9 +30,11 @@ contracts/svm/
 │   └── Guardian管理      # Guardian Set升级
 │
 └── token-bridge          # 代币桥程序
-    ├── transfer_tokens   # 锁定SPL代币发起跨链
-    ├── complete_transfer # 完成跨链转账
-    └── create_wrapped    # 创建包装代币
+    ├── register_token_binding  # 注册代币映射关系
+    ├── set_exchange_rate       # 设置跨链兑换比率
+    ├── transfer_tokens         # 锁定SPL代币发起跨链兑换
+    ├── complete_transfer       # 完成跨链兑换转账
+    └── update_amm_config       # 更新AMM配置（预留）
 ```
 
 ### 1.2 支持的功能
@@ -43,7 +45,65 @@ contracts/svm/
 | 接收VAA | solana-core | 验证Guardian签名 |
 | Guardian升级 | solana-core | 同步更新Guardian Set |
 | SPL代币跨链 | token-bridge | 锁定/解锁SPL代币 |
-| 包装代币铸造 | token-bridge | 铸造来自EVM链的代币 |
+| 代币注册绑定 | token-bridge | 单向/双向注册代币映射（支持多对多） |
+| 跨链兑换 | token-bridge | 支持不同代币间的跨链兑换 |
+| 兑换比率管理 | token-bridge | 管理员配置兑换比率，支持双向不对称 |
+| AMM动态定价 | token-bridge | 预留外部AMM接口（未来支持） |
+
+---
+
+### 1.3 核心设计概念
+
+#### 双向Binding机制
+
+**为什么需要双向binding？**
+
+每条链需要记录两种类型的binding：
+1. **出站binding** (source_chain = 本链)：用户发起跨链时查询
+2. **入站binding** (source_chain = 对方链)：接收跨链时验证合法性
+
+**示例**：
+```
+Solana链上需要注册：
+  [900, sol_usdc, 1, eth_usdc] ← 出站：用户在Solana发起transfer_tokens
+  [1, eth_usdc, 900, sol_usdc] ← 入站：Relayer提交Ethereum的VAA时验证
+
+Ethereum链上需要注册：
+  [1, eth_usdc, 900, sol_usdc] ← 出站：用户在Ethereum发起transferTokens
+  [900, sol_usdc, 1, eth_usdc] ← 入站：Relayer提交Solana的VAA时验证
+```
+
+**完整流程**：
+```
+1. Solana用户调用transfer_tokens(target_token=eth_usdc)
+   → 查询[900, sol_usdc, 1, eth_usdc]出站binding ✅
+   → 锁定sol_usdc，发送VAA
+
+2. Guardian签名VAA
+
+3. Relayer在Ethereum调用completeTransfer(vaa)
+   → 查询[900, sol_usdc, 1, eth_usdc]入站binding ✅
+   → 验证通过，解锁eth_usdc
+```
+
+#### 多对多关系
+
+**TokenBinding的PDA包含4个元素**：
+```
+[source_chain, source_token, target_chain, target_token]
+```
+
+**支持一个源代币绑定多个目标代币**：
+```
+Solana USDC可以兑换成：
+  [900, sol_usdc, 1, eth_usdc]    rate=1:1        ← Ethereum USDC
+  [900, sol_usdc, 1, eth_usdt]    rate=998:1000   ← Ethereum USDT
+  [900, sol_usdc, 1, eth_dai]     rate=1001:1000  ← Ethereum DAI
+  [900, sol_usdc, 56, bsc_busd]   rate=999:1000   ← BSC BUSD
+  [900, sol_usdc, 137, poly_usdc] rate=1:1        ← Polygon USDC
+
+用户转账时指定target_token选择目标代币
+```
 
 ---
 
@@ -219,7 +279,7 @@ pub fn is_vaa_consumed(
 
 #### 2.2.1 transfer_tokens
 
-**功能**: 锁定SPL代币并发起跨链转账到EVM
+**功能**: 锁定SPL代币并发起跨链兑换转账到目标链
 
 **接口**:
 ```rust
@@ -227,21 +287,36 @@ pub fn transfer_tokens(
     ctx: Context<TransferTokens>,
     amount: u64,
     target_chain: u16,
+    target_token: [u8; 32],
     recipient: [u8; 32],
 ) -> Result<()>
 ```
 
 **参数**:
-- `amount`: 转账数量
-- `target_chain`: 目标链ID（1=Ethereum, 56=BSC）
+- `amount`: 转账数量（源链代币数量）
+- `target_chain`: 目标链ID（1=Ethereum, 56=BSC, 137=Polygon, 900=Solana等）
+- `target_token`: 目标链代币地址（32字节格式，用户选择要兑换成哪种代币）
 - `recipient`: 接收者地址（32字节格式）
 
 **账户结构**:
 ```rust
 #[derive(Accounts)]
+#[instruction(amount: u64, target_chain: u16, target_token: [u8; 32])]
 pub struct TransferTokens<'info> {
     #[account(mut)]
     pub bridge: Account<'info, Bridge>,
+    
+    #[account(
+        seeds = [
+            b"TokenBinding",
+            900u16.to_le_bytes().as_ref(),    // source_chain (Solana=900)
+            token_mint.key().as_ref(),        // source_token
+            target_chain.to_le_bytes().as_ref(),  // target_chain
+            target_token.as_ref(),            // target_token (新增)
+        ],
+        bump
+    )]
+    pub token_binding: Account<'info, TokenBinding>,
     
     #[account(mut)]
     pub token_account: Account<'info, TokenAccount>,
@@ -251,23 +326,94 @@ pub struct TransferTokens<'info> {
     
     pub token_authority: Signer<'info>,
     
+    pub token_mint: Account<'info, Mint>,
+    
     pub token_program: Program<'info, Token>,
 }
 ```
 
 **流程**:
-1. 转账SPL代币到custody账户（锁定）
-2. 构造TokenTransfer payload
-3. 调用solana-core的post_message
-4. 返回序列号
+1. 检查TokenBinding是否存在且已启用
+2. 转账SPL代币到custody账户（锁定）
+3. 计算目标链代币数量（应用兑换比率）:
+   ```rust
+   let target_amount = if token_binding.use_external_price {
+       // 调用外部AMM获取价格（预留）
+       fetch_amm_price(token_binding.amm_program_id, amount)?
+   } else {
+       // 使用固定比率
+       amount * token_binding.rate_numerator / token_binding.rate_denominator
+   };
+   ```
+4. 构造TokenTransfer payload（包含目标代币信息）
+5. 调用solana-core的post_message
+6. 返回序列号
+
+**Payload扩展**:
+```rust
+pub struct TokenTransferPayload {
+    pub payload_type: u8,          // 1 = token transfer
+    pub amount: u64,               // 源链锁定数量
+    pub token_address: [u8; 32],   // 源链代币地址
+    pub token_chain: u16,          // 源链ID
+    pub recipient: [u8; 32],       // 接收者地址
+    pub recipient_chain: u16,      // 目标链ID
+    
+    // 新增字段
+    pub target_token: [u8; 32],    // 目标链代币地址
+    pub target_amount: u64,        // 目标链接收数量
+    pub exchange_rate_num: u64,    // 兑换比率分子
+    pub exchange_rate_denom: u64,  // 兑换比率分母
+}
+```
 
 **手续费**: 0.002 SOL（包含post_message费用）
+
+**使用示例**:
+```rust
+// 示例1: USDC → USDC (1:1同币种兑换)
+transfer_tokens(
+    amount: 1000_000_000,  // 1000 USDC
+    target_chain: 1,        // Ethereum
+    target_token: eth_usdc_address,  // 用户选择兑换成USDC
+    recipient: eth_address
+)
+// → 目标链接收: 1000 USDC
+
+// 示例2: USDC → USDT (不同币种兑换)
+transfer_tokens(
+    amount: 1000_000_000,  // 1000 USDC
+    target_chain: 1,        // Ethereum
+    target_token: eth_usdt_address,  // 用户选择兑换成USDT
+    recipient: eth_address
+)
+// → 目标链接收: 998 USDT (假设比率为998:1000)
+
+// 示例3: USDC → DAI (另一种稳定币)
+transfer_tokens(
+    amount: 1000_000_000,  // 1000 USDC
+    target_chain: 1,        // Ethereum
+    target_token: eth_dai_address,   // 用户选择兑换成DAI
+    recipient: eth_address
+)
+// → 目标链接收: 1001 DAI (假设比率为1001:1000)
+```
+
+**多对多关系支持**:
+同一个源代币可以绑定到多个目标代币，用户在转账时自由选择：
+```
+Solana USDC (900) →  Ethereum USDC (1)    rate 1:1
+                   →  Ethereum USDT (1)    rate 1:0.998
+                   →  Ethereum DAI (1)     rate 1:1.001
+                   →  BSC BUSD (56)        rate 1:0.999
+                   →  Polygon USDC (137)   rate 1:1
+```
 
 ---
 
 #### 2.2.2 complete_transfer
 
-**功能**: 完成跨链转账（解锁或铸造SPL代币）
+**功能**: 完成跨链兑换转账（解锁目标链代币）
 
 **接口**:
 ```rust
@@ -279,13 +425,36 @@ pub fn complete_transfer(
 
 **流程**:
 1. 验证VAA（调用post_vaa）
-2. 解析TokenTransfer payload
+2. 解析TokenTransfer payload（包含兑换信息）
 3. 检查目标链 = Solana（chain_id=2）
-4. 判断是原生代币还是包装代币
-   - 原生: 从custody解锁
-   - 包装: 铸造wrapped token
-5. 转账到接收者
-6. 标记VAA已消费
+4. 验证TokenBinding配置:
+   ```rust
+   // 反向查找TokenBinding（源链→Solana）
+   let binding = load_token_binding(
+       payload.token_chain,
+       payload.token_address,
+       2  // Solana
+   )?;
+   
+   // 验证目标代币匹配
+   require!(
+       binding.target_token == payload.target_token,
+       TokenBridgeError::TargetTokenMismatch
+   );
+   ```
+5. 验证兑换比率一致性（防止篡改）:
+   ```rust
+   let expected_target_amount = payload.amount
+       .checked_mul(binding.rate_numerator).unwrap()
+       .checked_div(binding.rate_denominator).unwrap();
+   
+   require!(
+       payload.target_amount == expected_target_amount,
+       TokenBridgeError::InvalidExchangeRate
+   );
+   ```
+6. 从custody解锁目标代币到接收者
+7. 标记VAA已消费
 
 **账户结构**:
 ```rust
@@ -297,52 +466,445 @@ pub struct CompleteTransfer<'info> {
     #[account(mut)]
     pub posted_vaa: Account<'info, PostedVAA>,
     
+    #[account(
+        seeds = [
+            b"TokenBinding",
+            // 从VAA payload中提取：
+            payload.token_chain.to_le_bytes().as_ref(),     // source_chain
+            payload.token_address.as_ref(),                 // source_token
+            payload.recipient_chain.to_le_bytes().as_ref(), // target_chain (本链)
+            payload.target_token.as_ref(),                  // target_token
+        ],
+        bump
+    )]
+    pub token_binding: Account<'info, TokenBinding>,
+    
     #[account(mut)]
     pub recipient_account: Account<'info, TokenAccount>,
     
     #[account(mut)]
-    pub custody_or_mint: AccountInfo<'info>,
+    pub custody_account: Account<'info, TokenAccount>,
+    
+    pub target_token_mint: Account<'info, Mint>,
     
     pub token_program: Program<'info, Token>,
 }
 ```
 
+**关键**：complete_transfer查询的是**入站binding**（source_chain=对方链）
+
+**安全检查**:
+```rust
+// 1. 验证目标代币Mint匹配
+require!(
+    recipient_account.mint == target_token_mint.key(),
+    TokenBridgeError::InvalidTokenAccount
+);
+
+// 2. 验证custody有足够余额
+require!(
+    custody_account.amount >= payload.target_amount,
+    TokenBridgeError::InsufficientBalance
+);
+
+// 3. 验证TokenBinding启用
+require!(
+    token_binding.enabled,
+    TokenBridgeError::TokenBindingNotEnabled
+);
+```
+
+**使用示例**:
+```rust
+// 场景: Ethereum USDT → Solana USDC
+// VAA payload包含:
+// - source: Ethereum USDT, amount=1000
+// - target: Solana USDC, target_amount=1002
+// - exchange_rate: 1000/998 (USDT稍便宜)
+
+complete_transfer(vaa)
+// → custody解锁1002 USDC到接收者
+```
+
 ---
 
-#### 2.2.3 create_wrapped
+#### 2.2.3 register_token_binding
 
-**功能**: 首次跨链某EVM代币时，创建包装SPL代币
+**功能**: 注册**单向**代币映射关系（管理员接口）
+
+> **重要**：这是单向注册。双向跨链需要在两条链上各注册一次，或使用`register_bidirectional_binding`
 
 **接口**:
 ```rust
-pub fn create_wrapped(
-    ctx: Context<CreateWrapped>,
-    chain: u16,
-    token_address: [u8; 32],
-    decimals: u8,
+pub fn register_token_binding(
+    ctx: Context<RegisterTokenBinding>,
+    source_chain: u16,
+    source_token: [u8; 32],
+    target_chain: u16,
+    target_token: [u8; 32],
 ) -> Result<()>
 ```
 
 **参数**:
-- `chain`: 源链ID（如1=Ethereum）
-- `token_address`: 源链代币地址
-- `decimals`: 精度
+- `source_chain`: 源链ID（如1=Ethereum, 56=BSC, 900=Solana）
+- `source_token`: 源链代币地址（32字节格式）
+- `target_chain`: 目标链ID（如1=Ethereum, 56=BSC, 900=Solana）
+- `target_token`: 目标链代币地址（32字节格式）
 
-**创建内容**:
-- 创建SPL Mint账户
-- 设置mint authority = token_bridge程序
-- 创建WrappedMeta账户存储元数据
-- 命名规则: "Wrapped {Symbol} (Wormhole)"
+**权限**: 仅管理员可调用
+
+**账户结构**:
+```rust
+#[derive(Accounts)]
+#[instruction(source_chain: u16, source_token: [u8; 32], target_chain: u16, target_token: [u8; 32])]
+pub struct RegisterTokenBinding<'info> {
+    #[account(mut)]
+    pub bridge_config: Account<'info, BridgeConfig>,
+    
+    #[account(
+        init,
+        payer = payer,
+        space = TokenBinding::LEN,
+        seeds = [
+            b"TokenBinding",
+            source_chain.to_le_bytes().as_ref(),
+            source_token.as_ref(),
+            target_chain.to_le_bytes().as_ref(),
+            target_token.as_ref(),  // 新增：支持多对多
+        ],
+        bump
+    )]
+    pub token_binding: Account<'info, TokenBinding>,
+    
+    pub authority: Signer<'info>,
+    
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    
+    pub system_program: Program<'info, System>,
+}
+```
+
+**单向注册示例**:
+```rust
+// 在Solana链上注册：Solana USDC → Ethereum USDC (出站)
+register_token_binding(
+    source_chain: 900,  // Solana
+    source_token: sol_usdc,
+    target_chain: 1,    // Ethereum
+    target_token: eth_usdc
+)
+// 此binding用于：用户在Solana调用transfer_tokens
+
+// 在Solana链上注册：Ethereum USDC → Solana USDC (入站，用于验证)
+register_token_binding(
+    source_chain: 1,    // Ethereum
+    source_token: eth_usdc,
+    target_chain: 900,  // Solana
+    target_token: sol_usdc
+)
+// 此binding用于：Relayer在Solana调用complete_transfer时验证
+
+// 多对多：同一源代币可以绑定到多个目标代币
+register_token_binding(900, sol_usdc, 1, eth_usdc)    // → Ethereum USDC
+register_token_binding(900, sol_usdc, 1, eth_usdt)    // → Ethereum USDT
+register_token_binding(900, sol_usdc, 56, bsc_busd)   // → BSC BUSD
+register_token_binding(900, sol_usdc, 137, poly_usdc) // → Polygon USDC
+```
+
+**双向跨链需要**：
+```
+在Solana链上注册2个binding：
+  1. [900, sol_usdc, 1, eth_usdc] - 出站
+  2. [1, eth_usdc, 900, sol_usdc] - 入站（验证用）
+
+在Ethereum链上也注册2个binding：
+  1. [1, eth_usdc, 900, sol_usdc] - 出站
+  2. [900, sol_usdc, 1, eth_usdc] - 入站（验证用）
+```
+
+---
+
+#### 2.2.4 register_bidirectional_binding
+
+**功能**: 注册**双向对称**代币映射关系（管理员接口）
+
+> **推荐**：此接口自动在本链注册双向binding，简化配置流程
+
+**接口**:
+```rust
+pub fn register_bidirectional_binding(
+    ctx: Context<RegisterBidirectionalBinding>,
+    local_chain: u16,
+    local_token: [u8; 32],
+    remote_chain: u16,
+    remote_token: [u8; 32],
+    outbound_rate_num: u64,
+    outbound_rate_denom: u64,
+    inbound_rate_num: u64,
+    inbound_rate_denom: u64,
+) -> Result<()>
+```
+
+**参数**:
+- `local_chain`: 本链ID（Solana=900）
+- `local_token`: 本链代币地址
+- `remote_chain`: 远程链ID（如1=Ethereum, 56=BSC, 137=Polygon）
+- `remote_token`: 远程链代币地址
+- `outbound_rate_num/denom`: 出站兑换比率（本链→远程链）
+- `inbound_rate_num/denom`: 入站兑换比率（远程链→本链）
+
+**权限**: 仅管理员可调用
+
+**功能说明**:
+此接口会自动创建**两个TokenBinding**：
+```rust
+// 1. 出站binding (local → remote)
+TokenBinding {
+    source_chain: local_chain,
+    source_token: local_token,
+    target_chain: remote_chain,
+    target_token: remote_token,
+    rate_numerator: outbound_rate_num,
+    rate_denominator: outbound_rate_denom,
+}
+
+// 2. 入站binding (remote → local)
+TokenBinding {
+    source_chain: remote_chain,
+    source_token: remote_token,
+    target_chain: local_chain,
+    target_token: local_token,
+    rate_numerator: inbound_rate_num,
+    rate_denominator: inbound_rate_denom,
+}
+```
+
+**账户结构**:
+```rust
+#[derive(Accounts)]
+#[instruction(
+    local_chain: u16, 
+    local_token: [u8; 32], 
+    remote_chain: u16, 
+    remote_token: [u8; 32]
+)]
+pub struct RegisterBidirectionalBinding<'info> {
+    #[account(mut)]
+    pub bridge_config: Account<'info, BridgeConfig>,
+    
+    // 出站binding
+    #[account(
+        init,
+        payer = payer,
+        space = TokenBinding::LEN,
+        seeds = [
+            b"TokenBinding",
+            local_chain.to_le_bytes().as_ref(),
+            local_token.as_ref(),
+            remote_chain.to_le_bytes().as_ref(),
+            remote_token.as_ref(),
+        ],
+        bump
+    )]
+    pub outbound_binding: Account<'info, TokenBinding>,
+    
+    // 入站binding
+    #[account(
+        init,
+        payer = payer,
+        space = TokenBinding::LEN,
+        seeds = [
+            b"TokenBinding",
+            remote_chain.to_le_bytes().as_ref(),
+            remote_token.as_ref(),
+            local_chain.to_le_bytes().as_ref(),
+            local_token.as_ref(),
+        ],
+        bump
+    )]
+    pub inbound_binding: Account<'info, TokenBinding>,
+    
+    pub authority: Signer<'info>,
+    
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    
+    pub system_program: Program<'info, System>,
+}
+```
+
+**使用示例**:
+```rust
+// 在Solana链上一次性注册双向USDC<->USDC binding
+register_bidirectional_binding(
+    local_chain: 900,    // Solana
+    local_token: sol_usdc,
+    remote_chain: 1,     // Ethereum
+    remote_token: eth_usdc,
+    outbound_rate_num: 1,    // Solana→Ethereum: 1:1
+    outbound_rate_denom: 1,
+    inbound_rate_num: 1,     // Ethereum→Solana: 1:1
+    inbound_rate_denom: 1,
+)
+
+// 自动创建：
+// ✅ [900, sol_usdc, 1, eth_usdc] - 出站
+// ✅ [1, eth_usdc, 900, sol_usdc] - 入站
+
+// 支持不对称兑换比率（考虑手续费等）
+register_bidirectional_binding(
+    local_chain: 900,
+    local_token: sol_usdc,
+    remote_chain: 1,
+    remote_token: eth_usdt,
+    outbound_rate_num: 998,   // 出站: 1 USDC = 0.998 USDT
+    outbound_rate_denom: 1000,
+    inbound_rate_num: 1002,   // 入站: 1 USDT = 1.002 USDC (反向)
+    inbound_rate_denom: 1000,
+)
+```
+
+**注意事项**:
+1. 仍需在**对方链**上也执行相同的双向注册
+2. 双向比率可以不对称（考虑流动性、手续费等因素）
+3. 此接口简化了本链配置，但不能跨链操作
+
+---
+
+#### 2.2.5 set_exchange_rate
+
+**功能**: 设置代币跨链兑换比率（管理员接口）
+
+**接口**:
+```rust
+pub fn set_exchange_rate(
+    ctx: Context<SetExchangeRate>,
+    source_chain: u16,
+    source_token: [u8; 32],
+    target_chain: u16,
+    rate_numerator: u64,
+    rate_denominator: u64,
+) -> Result<()>
+```
+
+**参数**:
+- `source_chain`: 源链ID
+- `source_token`: 源链代币地址
+- `target_chain`: 目标链ID
+- `rate_numerator`: 兑换比率分子
+- `rate_denominator`: 兑换比率分母
+
+**兑换计算**:
+```rust
+target_amount = source_amount * rate_numerator / rate_denominator
+```
+
+**权限**: 仅管理员可调用
 
 **示例**:
 ```rust
-// Ethereum USDC跨链到Solana
-create_wrapped(
-    chain: 1,
-    token_address: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48,
-    decimals: 6
+// 设置 1 USDC = 1 USDT (1:1兑换)
+set_exchange_rate(
+    source_chain: 2,  // Solana
+    source_token: usdc_mint,
+    target_chain: 1,  // Ethereum
+    rate_numerator: 1,
+    rate_denominator: 1
 )
-// → 创建 wrappedUSDC (SPL Token)
+
+// 设置 1 DOGE = 0.08 BTC (1:0.08兑换)
+set_exchange_rate(
+    source_chain: 3,  // Dogecoin
+    source_token: doge_address,
+    target_chain: 1,  // Bitcoin
+    rate_numerator: 8,
+    rate_denominator: 100
+)
+```
+
+**账户结构**:
+```rust
+#[derive(Accounts)]
+pub struct SetExchangeRate<'info> {
+    #[account(
+        mut,
+        seeds = [
+            b"TokenBinding",
+            source_chain.to_le_bytes().as_ref(),
+            source_token.as_ref(),
+            target_chain.to_le_bytes().as_ref(),
+        ],
+        bump
+    )]
+    pub token_binding: Account<'info, TokenBinding>,
+    
+    pub authority: Signer<'info>,
+}
+```
+
+---
+
+#### 2.2.5 update_amm_config
+
+**功能**: 配置外部AMM接口用于动态定价（预留接口）
+
+**接口**:
+```rust
+pub fn update_amm_config(
+    ctx: Context<UpdateAMMConfig>,
+    source_chain: u16,
+    source_token: [u8; 32],
+    target_chain: u16,
+    amm_program_id: Pubkey,
+    use_external_price: bool,
+) -> Result<()>
+```
+
+**参数**:
+- `source_chain`: 源链ID
+- `source_token`: 源链代币地址
+- `target_chain`: 目标链ID
+- `amm_program_id`: 外部AMM程序ID（如Raydium、Orca）
+- `use_external_price`: 是否使用外部价格（true=AMM, false=固定比率）
+
+**权限**: 仅管理员可调用
+
+**预留设计**:
+```rust
+// 未来可能调用的AMM接口
+if token_binding.use_external_price {
+    let amm_price = invoke_amm_oracle(
+        token_binding.amm_program_id,
+        source_token,
+        target_token
+    )?;
+    target_amount = source_amount * amm_price;
+} else {
+    // 使用固定比率
+    target_amount = source_amount * rate_numerator / rate_denominator;
+}
+```
+
+**示例**:
+```rust
+// 启用Raydium AMM动态定价
+update_amm_config(
+    source_chain: 2,
+    source_token: usdc_mint,
+    target_chain: 1,
+    amm_program_id: RaydiumProgramId,
+    use_external_price: true
+)
+
+// 恢复使用固定比率
+update_amm_config(
+    source_chain: 2,
+    source_token: usdc_mint,
+    target_chain: 1,
+    amm_program_id: Pubkey::default(),
+    use_external_price: false
+)
 ```
 
 ---
@@ -407,29 +969,90 @@ pub struct PostedVAA {
 
 ### 3.2 Payload结构
 
-#### TokenTransfer Payload
+#### TokenTransfer Payload（新版本 - 支持跨链兑换）
+
 ```rust
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct TokenTransferPayload {
-    pub payload_type: u8,      // 1 = token transfer
-    pub amount: u64,
-    pub token_address: [u8; 32],
-    pub token_chain: u16,
-    pub recipient: [u8; 32],
-    pub recipient_chain: u16,
+    // 基础字段
+    pub payload_type: u8,           // 1 = token transfer with exchange
+    pub amount: u64,                // 源链锁定数量
+    pub token_address: [u8; 32],    // 源链代币地址
+    pub token_chain: u16,           // 源链ID
+    pub recipient: [u8; 32],        // 接收者地址
+    pub recipient_chain: u16,       // 目标链ID
+    
+    // 新增兑换字段
+    pub target_token: [u8; 32],     // 目标链代币地址
+    pub target_amount: u64,         // 目标链接收数量
+    pub exchange_rate_num: u64,     // 兑换比率分子
+    pub exchange_rate_denom: u64,   // 兑换比率分母
 }
 ```
 
-**编码方式**:
+**字节布局**:
+```
+Offset  Size  Field
+------  ----  -----
+0       1     payload_type
+1       8     amount (big-endian u64)
+9       32    token_address
+41      2     token_chain (big-endian u16)
+43      32    recipient
+75      2     recipient_chain (big-endian u16)
+77      32    target_token (新增)
+109     8     target_amount (新增, big-endian u64)
+117     8     exchange_rate_num (新增, big-endian u64)
+125     8     exchange_rate_denom (新增, big-endian u64)
+------
+总计: 133字节
+```
+
+**编码示例**:
 ```rust
+// 示例1: USDC → USDC (同币种)
 let payload = TokenTransferPayload {
     payload_type: 1,
-    amount: 1000000000,  // 1000 USDC (6 decimals)
-    token_address: usdc_mint.to_bytes(),
+    amount: 1000_000_000,  // 1000 USDC (6 decimals)
+    token_address: sol_usdc_mint.to_bytes(),
     token_chain: 2,  // Solana
     recipient: eth_address,
     recipient_chain: 1,  // Ethereum
+    target_token: eth_usdc_address,
+    target_amount: 1000_000_000,  // 1000 USDC (1:1)
+    exchange_rate_num: 1,
+    exchange_rate_denom: 1,
 }.try_to_vec()?;
+
+// 示例2: USDC → USDT (不同币种)
+let payload = TokenTransferPayload {
+    payload_type: 1,
+    amount: 1000_000_000,  // 1000 USDC
+    token_address: sol_usdc_mint.to_bytes(),
+    token_chain: 2,  // Solana
+    recipient: eth_address,
+    recipient_chain: 1,  // Ethereum
+    target_token: eth_usdt_address,
+    target_amount: 998_000_000,  // 998 USDT (1:0.998)
+    exchange_rate_num: 998,
+    exchange_rate_denom: 1000,
+}.try_to_vec()?;
+```
+
+**向后兼容性**:
+> **注意**: 旧版本payload（77字节）仍可兼容，缺失字段按1:1兑换同代币处理。
+
+```rust
+// 检测payload版本
+if payload.len() == 77 {
+    // 旧版本：自动填充
+    target_token = token_address;
+    target_amount = amount;
+    exchange_rate_num = 1;
+    exchange_rate_denom = 1;
+} else if payload.len() == 133 {
+    // 新版本：包含兑换信息
+}
 ```
 
 ---
@@ -455,8 +1078,143 @@ let (sequence_pda, _) = Pubkey::find_program_address(
 
 ---
 
-### 3.4 WrappedMeta账户
+### 3.4 TokenBinding账户
+
+**功能**: 存储代币跨链映射关系和兑换配置
+
 ```rust
+#[account]
+pub struct TokenBinding {
+    /// 源链ID
+    pub source_chain: u16,
+    
+    /// 源链代币地址（32字节统一格式）
+    pub source_token: [u8; 32],
+    
+    /// 目标链ID
+    pub target_chain: u16,
+    
+    /// 目标链代币地址（32字节统一格式）
+    pub target_token: [u8; 32],
+    
+    /// 兑换比率分子
+    pub rate_numerator: u64,
+    
+    /// 兑换比率分母
+    pub rate_denominator: u64,
+    
+    /// 是否启用外部AMM定价
+    pub use_external_price: bool,
+    
+    /// 外部AMM程序ID（预留）
+    pub amm_program_id: Pubkey,
+    
+    /// 是否启用
+    pub enabled: bool,
+    
+    /// 创建时间
+    pub created_at: i64,
+    
+    /// 最后更新时间
+    pub updated_at: i64,
+}
+
+impl TokenBinding {
+    pub const LEN: usize = 8 + // discriminator
+        2 + // source_chain
+        32 + // source_token
+        2 + // target_chain
+        32 + // target_token
+        8 + // rate_numerator
+        8 + // rate_denominator
+        1 + // use_external_price
+        32 + // amm_program_id
+        1 + // enabled
+        8 + // created_at
+        8; // updated_at
+}
+```
+
+**PDA推导**:
+```rust
+// 支持多对多：PDA包含完整的4元组
+let (token_binding_pda, _) = Pubkey::find_program_address(
+    &[
+        b"TokenBinding",
+        source_chain.to_le_bytes().as_ref(),  // 源链
+        source_token.as_ref(),                // 源代币
+        target_chain.to_le_bytes().as_ref(),  // 目标链
+        target_token.as_ref(),                // 目标代币（新增）
+    ],
+    program_id
+);
+```
+
+**使用示例**:
+```rust
+// 示例：查询Solana USDC → Ethereum USDT的兑换比率
+let binding_pda = Pubkey::find_program_address(
+    &[
+        b"TokenBinding",
+        900u16.to_le_bytes().as_ref(),  // Solana
+        sol_usdc.as_ref(),
+        1u16.to_le_bytes().as_ref(),    // Ethereum
+        eth_usdt.as_ref(),
+    ],
+    &token_bridge_program_id,
+).0;
+
+let binding = program.account::<TokenBinding>(binding_pda).await?;
+let target_amount = source_amount
+    .checked_mul(binding.rate_numerator).unwrap()
+    .checked_div(binding.rate_denominator).unwrap();
+
+// 同一源代币可以有多个binding：
+// [900, sol_usdc, 1, eth_usdc]    → rate 1:1
+// [900, sol_usdc, 1, eth_usdt]    → rate 998:1000
+// [900, sol_usdc, 56, bsc_busd]   → rate 999:1000
+// [900, sol_usdc, 137, poly_usdc] → rate 1:1
+```
+
+---
+
+### 3.5 BridgeConfig账户
+
+**功能**: 存储桥接全局配置和管理员权限
+
+```rust
+#[account]
+pub struct BridgeConfig {
+    /// 管理员公钥
+    pub authority: Pubkey,
+    
+    /// 是否启用跨链兑换功能
+    pub exchange_enabled: bool,
+    
+    /// 默认兑换手续费（基点，10000=100%）
+    pub default_fee_bps: u16,
+    
+    /// 手续费接收账户
+    pub fee_recipient: Pubkey,
+    
+    /// 暂停状态
+    pub paused: bool,
+}
+
+impl BridgeConfig {
+    pub const LEN: usize = 8 + 32 + 1 + 2 + 32 + 1;
+}
+```
+
+---
+
+### 3.6 WrappedMeta账户（已弃用）
+
+> **注意**: 该账户结构在新设计中已被TokenBinding替代。
+> 新设计不再创建包装代币，而是绑定到已有代币。
+
+```rust
+// 旧设计（已弃用）
 #[account]
 pub struct WrappedMeta {
     pub original_chain: u16,
@@ -519,11 +1277,43 @@ pub enum TokenBridgeError {
     #[msg("Insufficient balance")]
     InsufficientBalance,
     
-    #[msg("Wrapped token already exists")]
-    WrappedTokenExists,
-    
     #[msg("Invalid payload")]
     InvalidPayload,
+    
+    // 代币绑定相关错误
+    #[msg("Token binding not found")]
+    TokenBindingNotFound,
+    
+    #[msg("Token binding already exists")]
+    TokenBindingExists,
+    
+    #[msg("Token binding not enabled")]
+    TokenBindingNotEnabled,
+    
+    #[msg("Invalid exchange rate")]
+    InvalidExchangeRate,
+    
+    #[msg("Exchange rate denominator cannot be zero")]
+    ZeroDenominator,
+    
+    #[msg("Target token mismatch")]
+    TargetTokenMismatch,
+    
+    #[msg("Exchange feature disabled")]
+    ExchangeDisabled,
+    
+    #[msg("Unauthorized: not bridge authority")]
+    Unauthorized,
+    
+    #[msg("AMM price fetch failed")]
+    AMMPriceFetchFailed,
+    
+    #[msg("Slippage exceeded")]
+    SlippageExceeded,
+    
+    // 旧设计相关错误（已弃用）
+    #[msg("[Deprecated] Wrapped token already exists")]
+    WrappedTokenExists,
 }
 ```
 
@@ -658,12 +1448,49 @@ let (vaa_pda, _) = Pubkey::find_program_address(
 );
 ```
 
-### C. Solana链ID
+### C. 链ID规范
 
+**采用主流Chain ID标识**（与EVM生态保持一致）：
+
+| Chain ID | 网络 | 类型 |
+|----------|------|------|
+| 1 | Ethereum Mainnet | EVM |
+| 56 | BSC (Binance Smart Chain) | EVM |
+| 137 | Polygon | EVM |
+| 43114 | Avalanche C-Chain | EVM |
+| 42161 | Arbitrum One | EVM |
+| 10 | Optimism | EVM |
+| 8453 | Base | EVM |
+| 250 | Fantom | EVM |
+| 100 | Gnosis Chain | EVM |
+| 1101 | Polygon zkEVM | EVM |
+| 324 | zkSync Era | EVM |
+| ... | 其他EVM链 | EVM |
+
+**Solana链ID**：
 ```
-Mainnet: 2
-Devnet:  2 (相同)
+Chain ID: 900  // Solana Mainnet
+Chain ID: 901  // Solana Devnet
+Chain ID: 902  // Solana Testnet
 ```
+> 选择900系列避免与现有EVM链冲突
+
+**本地测试链ID**（使用极大魔数防止冲突）：
+```
+Chain ID范围: 0xFFF0 - 0xFFFF (65520-65535)
+
+推荐分配：
+- 0xFFF0 (65520): Local Ethereum (Hardhat/Anvil)
+- 0xFFF1 (65521): Local Solana (solana-test-validator)
+- 0xFFF2 (65522): Local BSC
+- 0xFFF3 (65523): Local Polygon
+- ...
+- 0xFFFF (65535): 预留
+```
+
+**参考资源**：
+- EVM Chain IDs: https://chainlist.org/
+- Ethereum Chain IDs: https://github.com/ethereum-lists/chains
 
 ---
 
