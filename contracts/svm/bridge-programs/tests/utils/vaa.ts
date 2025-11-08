@@ -66,11 +66,11 @@ export interface TokenTransferPayload {
   recipient: Buffer;         // 32 bytes - 接收者地址
   recipientChain: number;    // 目标链ID
   
-  // 新增兑换字段（56字节）
-  targetToken: Buffer;       // 32 bytes - 目标链代币地址
-  targetAmount: bigint;      // 目标链接收数量
-  exchangeRateNum: bigint;   // 兑换比率分子
-  exchangeRateDenom: bigint; // 兑换比率分母
+  // 新增兑换字段（56字节）- 可选，用于向后兼容
+  targetToken?: Buffer;       // 32 bytes - 目标链代币地址
+  targetAmount?: bigint;      // 目标链接收数量
+  exchangeRateNum?: bigint;   // 兑换比率分子
+  exchangeRateDenom?: bigint; // 兑换比率分母
 }
 
 /**
@@ -101,6 +101,12 @@ export interface GuardianSetUpgradePayload {
  * Total: 157 bytes
  */
 export function serializeTokenTransferPayload(payload: TokenTransferPayload): Buffer {
+  // 如果缺少新字段，使用默认值（向后兼容）
+  const targetToken = payload.targetToken || payload.tokenAddress;
+  const targetAmount = payload.targetAmount || payload.amount;
+  const exchangeRateNum = payload.exchangeRateNum || BigInt(1);
+  const exchangeRateDenom = payload.exchangeRateDenom || BigInt(1);
+  
   const buffer = Buffer.alloc(157); // 更新为157字节
   let offset = 0;
   
@@ -132,24 +138,24 @@ export function serializeTokenTransferPayload(payload: TokenTransferPayload): Bu
   offset += 2;
   
   // 新增字段：targetToken (32 bytes)
-  payload.targetToken.copy(buffer, offset);
+  targetToken.copy(buffer, offset);
   offset += 32;
   
   // targetAmount: uint64 (8 bytes big-endian)
   const targetAmountBuffer = Buffer.alloc(8);
-  targetAmountBuffer.writeBigUInt64BE(payload.targetAmount);
+  targetAmountBuffer.writeBigUInt64BE(targetAmount);
   targetAmountBuffer.copy(buffer, offset);
   offset += 8;
   
   // exchangeRateNum: uint64 (8 bytes big-endian)
   const rateNumBuffer = Buffer.alloc(8);
-  rateNumBuffer.writeBigUInt64BE(payload.exchangeRateNum);
+  rateNumBuffer.writeBigUInt64BE(exchangeRateNum);
   rateNumBuffer.copy(buffer, offset);
   offset += 8;
   
   // exchangeRateDenom: uint64 (8 bytes big-endian)
   const rateDenomBuffer = Buffer.alloc(8);
-  rateDenomBuffer.writeBigUInt64BE(payload.exchangeRateDenom);
+  rateDenomBuffer.writeBigUInt64BE(exchangeRateDenom);
   rateDenomBuffer.copy(buffer, offset);
   
   return buffer;
