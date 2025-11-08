@@ -75,98 +75,117 @@ describe("程序集成测试", () => {
   // INT-SOL-001: transfer_tokens → post_message
   // ============================================
   
-  it("INT-SOL-001: transfer_tokens调用post_message", async () => {
-    printTestHeader("INT-SOL-001: 跨程序调用测试");
+  it("INT-SOL-001: transfer_tokens调用post_message（带兑换）", async () => {
+    printTestHeader("INT-SOL-001: 跨程序调用测试（新设计）");
     
     printTestStep(1, "创建测试Token并铸造");
     // const mint = await createTestMint(provider.connection, payer, 6);
-    // const userTokenAccount = await createAndMintTestToken(
-    //   provider.connection,
-    //   payer,
-    //   mint,
-    //   user.publicKey,
-    //   BigInt(1000_000_000)
-    // );
+    // const userTokenAccount = await createAndMintTestToken(...);
     
-    printTestStep(2, "调用transfer_tokens");
+    printTestStep(2, "注册TokenBinding（USDC → USDT, 998:1000）");
+    const ethUSDT = ethAddressToBytes32("0xdAC17F958D2ee523a2206206994597C13D831ec7");
+    // await tokenProgram.methods
+    //   .registerTokenBinding(900, Array.from(mintBytes), 1, Array.from(ethUSDT))
+    //   .accounts({ ... })
+    //   .rpc();
+    
+    // await tokenProgram.methods
+    //   .setExchangeRate(900, Array.from(mintBytes), 1, 998, 1000)
+    //   .accounts({ ... })
+    //   .rpc();
+    
+    printTestStep(3, "调用transfer_tokens（带target_token参数）");
     const amount = BigInt(500_000_000);
     const targetChain = 1; // Ethereum
+    const targetToken = ethUSDT; // 兑换成USDT
     const recipient = ethAddressToBytes32("0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb");
     
     // const tx = await tokenProgram.methods
-    //   .transferTokens(new anchor.BN(amount.toString()), targetChain, Array.from(recipient))
+    //   .transferTokens(
+    //     new anchor.BN(amount.toString()),
+    //     targetChain,
+    //     Array.from(targetToken),  // 新参数
+    //     Array.from(recipient)
+    //   )
     //   .accounts({ ... })
     //   .signers([user])
     //   .rpc();
     
     // assertTxSuccess(tx, "transfer_tokens成功");
     
-    printTestStep(3, "验证post_message被调用");
-    // 查询序列号是否递增
-    // const [sequencePDA] = getSequencePDA(coreProgram.programId, tokenProgram.programId);
+    printTestStep(4, "验证post_message被调用");
     // const sequence = await coreProgram.account.sequence.fetch(sequencePDA);
     // assertEqual(sequence.sequence.toNumber(), 1, "序列号递增");
     
-    printTestStep(4, "验证消息内容");
-    // const [messagePDA] = getPostedMessagePDA(coreProgram.programId, tokenProgram.programId, BigInt(0));
+    printTestStep(5, "验证消息包含兑换信息（133字节）");
     // const message = await coreProgram.account.postedMessage.fetch(messagePDA);
-    
-    // 解析payload验证TokenTransfer内容
     // const payload = parseTokenTransferPayload(message.payload);
-    // assertEqual(payload.amount, amount, "转账金额正确");
-    // assertEqual(payload.recipientChain, targetChain, "目标链正确");
+    // assertEqual(payload.length, 133, "Payload为133字节（新版本）");
+    // assertEqual(payload.amount, amount, "源链数量500 USDC");
+    // assertEqual(payload.targetToken, ethUSDT, "目标代币为USDT");
+    // const expectedTargetAmount = amount * BigInt(998) / BigInt(1000);
+    // assertEqual(payload.targetAmount, expectedTargetAmount, "目标数量499 USDT");
+    // assertEqual(payload.exchangeRateNum, 998, "兑换比率分子");
+    // assertEqual(payload.exchangeRateDenom, 1000, "兑换比率分母");
     
     console.log("✓ INT-SOL-001 测试通过（占位，等待程序实现）");
+    console.log("  新设计：支持代币兑换，payload扩展至133字节");
   });
   
   // ============================================
   // INT-SOL-002: post_vaa → complete_transfer
   // ============================================
   
-  it("INT-SOL-002: post_vaa后complete_transfer", async () => {
-    printTestHeader("INT-SOL-002: VAA验证后完成转账");
+  it("INT-SOL-002: post_vaa后complete_transfer（带兑换验证）", async () => {
+    printTestHeader("INT-SOL-002: VAA验证后完成转账（新设计）");
     
-    printTestStep(1, "构造跨链转账VAA");
+    printTestStep(1, "注册TokenBinding（Ethereum USDT → Solana USDC, 1002:1000）");
+    const ethUSDT = ethAddressToBytes32("0xdAC17F958D2ee523a2206206994597C13D831ec7");
+    // await tokenProgram.methods
+    //   .registerTokenBinding(1, Array.from(ethUSDT), 900, Array.from(solUSDC))
+    //   .accounts({ ... })
+    //   .rpc();
+    
+    // await tokenProgram.methods
+    //   .setExchangeRate(1, Array.from(ethUSDT), 900, 1002, 1000)
+    //   .accounts({ ... })
+    //   .rpc();
+    
+    printTestStep(2, "构造跨链转账VAA（新版本，133字节）");
     const payload: TokenTransferPayload = {
       payloadType: 1,
-      amount: BigInt(300_000_000),
-      tokenAddress: Buffer.alloc(32),
-      tokenChain: 1,
+      amount: BigInt(1000_000_000),  // 源链1000 USDT
+      tokenAddress: ethUSDT,
+      tokenChain: 1,  // Ethereum
       recipient: solanaAddressToBytes32(user.publicKey),
-      recipientChain: 2,
+      recipientChain: 900,  // Solana
+      // 新增字段
+      targetToken: Buffer.alloc(32),  // Solana USDC
+      targetAmount: BigInt(1_002_000_000),  // 目标链1002 USDC (1:1.002)
+      exchangeRateNum: BigInt(1002),
+      exchangeRateDenom: BigInt(1000),
     };
     
     // const vaa = createTokenTransferVAA({ ... });
     
-    printTestStep(2, "调用solana-core.post_vaa");
-    // const tx1 = await coreProgram.methods
-    //   .postVaa(vaa)
-    //   .accounts({ ... })
-    //   .rpc();
-    
+    printTestStep(3, "调用solana-core.post_vaa");
+    // const tx1 = await coreProgram.methods.postVaa(vaa).accounts({ ... }).rpc();
     // assertTxSuccess(tx1, "VAA验证成功");
     
-    printTestStep(3, "验证PostedVAA账户创建");
-    // const postedVAA = await coreProgram.account.postedVaa.fetch(postedVAAPDA);
-    // assertEqual(postedVAA.consumed, false, "VAA未被消费");
-    
     printTestStep(4, "调用token-bridge.complete_transfer");
-    // const tx2 = await tokenProgram.methods
-    //   .completeTransfer(vaa)
-    //   .accounts({ ... })
-    //   .rpc();
+    // 内部验证：
+    // - 检查TokenBinding存在
+    // - 验证兑换比率一致性
+    // - 验证目标代币匹配
+    // const tx2 = await tokenProgram.methods.completeTransfer(vaa).accounts({ ... }).rpc();
+    // assertTxSuccess(tx2, "转账完成，兑换验证通过");
     
-    // assertTxSuccess(tx2, "转账完成");
-    
-    printTestStep(5, "验证VAA标记为已消费");
-    // const postedVAAAfter = await coreProgram.account.postedVaa.fetch(postedVAAPDA);
-    // assertEqual(postedVAAAfter.consumed, true, "VAA已被消费");
-    
-    printTestStep(6, "验证用户收到代币");
+    printTestStep(5, "验证用户收到兑换后的代币");
     // const balance = await getTokenBalance(provider.connection, userTokenAccount);
-    // assertEqual(balance, BigInt(300_000_000), "用户收到代币");
+    // assertEqual(balance, BigInt(1_002_000_000), "用户收到1002 USDC");
     
     console.log("✓ INT-SOL-002 测试通过（占位，等待程序实现）");
+    console.log("  新设计：支持兑换验证，防止比率篡改");
   });
   
   // ============================================

@@ -164,7 +164,8 @@ export function getPostedVAAPDA(
 }
 
 /**
- * 获取WrappedMeta PDA
+ * 获取WrappedMeta PDA（已弃用 - 新设计使用TokenBinding）
+ * @deprecated 使用getTokenBindingPDA代替
  */
 export function getWrappedMetaPDA(
   programId: PublicKey,
@@ -177,6 +178,44 @@ export function getWrappedMetaPDA(
     [Buffer.from("WrappedMeta"), chainBuffer, tokenAddress],
     programId
   );
+}
+
+/**
+ * 获取TokenBinding PDA（新设计）
+ * TokenBinding存储代币映射关系和兑换配置
+ * PDA推导：["TokenBinding", source_chain, source_token, target_chain, target_token]
+ */
+export function getTokenBindingPDA(
+  programId: PublicKey,
+  sourceChain: number,
+  sourceToken: Buffer,    // 32 bytes
+  targetChain: number,
+  targetToken: Buffer     // 32 bytes
+): [PublicKey, number] {
+  const sourceChainBuffer = Buffer.alloc(2);
+  sourceChainBuffer.writeUInt16LE(sourceChain);
+  
+  const targetChainBuffer = Buffer.alloc(2);
+  targetChainBuffer.writeUInt16LE(targetChain);
+  
+  return derivePDA(
+    [
+      Buffer.from("TokenBinding"),
+      sourceChainBuffer,
+      sourceToken,
+      targetChainBuffer,
+      targetToken,
+    ],
+    programId
+  );
+}
+
+/**
+ * 获取BridgeConfig PDA（新设计）
+ * BridgeConfig存储全局配置和管理员权限
+ */
+export function getBridgeConfigPDA(programId: PublicKey): [PublicKey, number] {
+  return derivePDA([Buffer.from("BridgeConfig")], programId);
 }
 
 /**
