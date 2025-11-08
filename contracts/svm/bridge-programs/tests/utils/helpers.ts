@@ -164,24 +164,7 @@ export function getPostedVAAPDA(
 }
 
 /**
- * 获取WrappedMeta PDA（已弃用 - 使用TokenBinding替代）
- * @deprecated 使用 getTokenBindingPDA 替代
- */
-export function getWrappedMetaPDA(
-  programId: PublicKey,
-  tokenChain: number,
-  tokenAddress: Buffer
-): [PublicKey, number] {
-  const chainBuffer = Buffer.alloc(2);
-  chainBuffer.writeUInt16LE(tokenChain);
-  return derivePDA(
-    [Buffer.from("WrappedMeta"), chainBuffer, tokenAddress],
-    programId
-  );
-}
-
-/**
- * 获取TokenBinding PDA（新设计）
+ * 获取TokenBinding PDA
  * @param programId token-bridge程序ID
  * @param sourceChain 源链ID
  * @param sourceToken 源链代币地址（32字节）

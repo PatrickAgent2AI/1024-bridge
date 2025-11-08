@@ -1,6 +1,6 @@
 /**
  * token-bridge程序单元测试（新设计 - 代币绑定机制）
- * 测试数量：35个（包含新增的代币绑定和兑换测试）
+ * 测试数量：33个（代币绑定和兑换测试）
  */
 
 import * as anchor from "@coral-xyz/anchor";
@@ -24,7 +24,6 @@ import {
   getBridgePDA,
   getTokenBindingPDA,
   getBridgeConfigPDA,
-  getWrappedMetaPDA,
   printTestHeader,
   printTestStep,
   assertEqual,
@@ -1172,19 +1171,4 @@ describe("token-bridge单元测试（新设计 - 代币绑定机制）", () => {
     });
   });
   
-  // ============================================
-  // 2.2.7 create_wrapped指令测试（已弃用）
-  // ============================================
-  
-  describe("UNIT-TB-023 ~ 024: create_wrapped指令（已弃用）", () => {
-    it("UNIT-TB-023: 创建包装代币（已弃用）", async () => {
-      console.log("⚠️  UNIT-TB-023 已弃用（使用TokenBinding替代）");
-      console.log("  旧设计: create_wrapped创建新的SPL Token");
-      console.log("  新设计: register_token_binding绑定到已有代币");
-    });
-    
-    it("UNIT-TB-024: 重复创建失败（已弃用）", async () => {
-      console.log("⚠️  UNIT-TB-024 已弃用（使用TokenBinding替代）");
-    });
-  });
 });
