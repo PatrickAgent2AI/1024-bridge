@@ -1,0 +1,12 @@
+[package]
+name = "guardian-evm"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+guardian-core = { workspace = true }
+ethers = { version = "2.0.11", default-features = false, features = ["ws", "rustls"] }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+

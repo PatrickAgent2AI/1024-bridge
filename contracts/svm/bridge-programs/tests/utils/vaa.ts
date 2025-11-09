@@ -54,23 +54,20 @@ export interface Signature {
 }
 
 /**
- * TokenTransfer Payload结构（新版本 - 支持跨链兑换）
- * 总大小：133字节
+ * TokenTransfer Payload结构（支持跨链兑换）
+ * 总大小：157字节
  */
 export interface TokenTransferPayload {
-  // 基础字段（77字节）
-  payloadType: number;       // 1 = token transfer with exchange
-  amount: bigint;            // 源链锁定数量
-  tokenAddress: Buffer;      // 32 bytes - 源链代币地址
-  tokenChain: number;        // 源链ID
-  recipient: Buffer;         // 32 bytes - 接收者地址
-  recipientChain: number;    // 目标链ID
-  
-  // 新增兑换字段（56字节）- 可选，用于向后兼容
-  targetToken?: Buffer;       // 32 bytes - 目标链代币地址
-  targetAmount?: bigint;      // 目标链接收数量
-  exchangeRateNum?: bigint;   // 兑换比率分子
-  exchangeRateDenom?: bigint; // 兑换比率分母
+  payloadType: number;        // 1 = token transfer with exchange
+  amount: bigint;             // 源链锁定数量
+  tokenAddress: Buffer;       // 32 bytes - 源链代币地址
+  tokenChain: number;         // 源链ID
+  recipient: Buffer;          // 32 bytes - 接收者地址
+  recipientChain: number;     // 目标链ID
+  targetToken: Buffer;        // 32 bytes - 目标链代币地址
+  targetAmount: bigint;       // 目标链接收数量
+  exchangeRateNum: bigint;    // 兑换比率分子
+  exchangeRateDenom: bigint;  // 兑换比率分母
 }
 
 /**
@@ -85,7 +82,7 @@ export interface GuardianSetUpgradePayload {
 }
 
 /**
- * 序列化TokenTransfer Payload（新版本 - 133字节）
+ * 序列化TokenTransfer Payload（157字节）
  * 
  * 字节布局：
  * 0-0:    payloadType (1)
@@ -101,11 +98,6 @@ export interface GuardianSetUpgradePayload {
  * Total: 157 bytes
  */
 export function serializeTokenTransferPayload(payload: TokenTransferPayload): Buffer {
-  // 如果缺少新字段，使用默认值（向后兼容）
-  const targetToken = payload.targetToken || payload.tokenAddress;
-  const targetAmount = payload.targetAmount || payload.amount;
-  const exchangeRateNum = payload.exchangeRateNum || BigInt(1);
-  const exchangeRateDenom = payload.exchangeRateDenom || BigInt(1);
   
   const buffer = Buffer.alloc(157); // 更新为157字节
   let offset = 0;
@@ -137,25 +129,25 @@ export function serializeTokenTransferPayload(payload: TokenTransferPayload): Bu
   buffer.writeUInt16BE(payload.recipientChain, offset);
   offset += 2;
   
-  // 新增字段：targetToken (32 bytes)
-  targetToken.copy(buffer, offset);
+  // targetToken: 32 bytes
+  payload.targetToken.copy(buffer, offset);
   offset += 32;
   
   // targetAmount: uint64 (8 bytes big-endian)
   const targetAmountBuffer = Buffer.alloc(8);
-  targetAmountBuffer.writeBigUInt64BE(targetAmount);
+  targetAmountBuffer.writeBigUInt64BE(payload.targetAmount);
   targetAmountBuffer.copy(buffer, offset);
   offset += 8;
   
   // exchangeRateNum: uint64 (8 bytes big-endian)
   const rateNumBuffer = Buffer.alloc(8);
-  rateNumBuffer.writeBigUInt64BE(exchangeRateNum);
+  rateNumBuffer.writeBigUInt64BE(payload.exchangeRateNum);
   rateNumBuffer.copy(buffer, offset);
   offset += 8;
   
   // exchangeRateDenom: uint64 (8 bytes big-endian)
   const rateDenomBuffer = Buffer.alloc(8);
-  rateDenomBuffer.writeBigUInt64BE(exchangeRateDenom);
+  rateDenomBuffer.writeBigUInt64BE(payload.exchangeRateDenom);
   rateDenomBuffer.copy(buffer, offset);
   
   return buffer;
@@ -515,5 +507,43 @@ export function parseVAABodyHash(vaaBuffer: Buffer): Buffer {
   // 返回double hash
   const bodyHash = hashVAABody(body);
   return Buffer.from(keccak256(bodyHash), 'hex');
+}
+
+/**
+ * 从VAA中提取emitter信息（用于PDA derivation）
+ */
+export function extractVAAEmitterInfo(vaaBuffer: Buffer): {
+  emitterChain: number;
+  emitterAddress: Buffer;
+  sequence: bigint;
+} {
+  let offset = 0;
+  
+  // version (1) + guardian_set_index (4)
+  offset += 5;
+  
+  // signatures_len (1)
+  const signaturesLen = vaaBuffer.readUInt8(offset);
+  offset += 1;
+  
+  // signatures (66 bytes each)
+  offset += signaturesLen * 66;
+  
+  // body开始
+  // timestamp (4) + nonce (4)
+  offset += 8;
+  
+  // emitter_chain (2)
+  const emitterChain = vaaBuffer.readUInt16BE(offset);
+  offset += 2;
+  
+  // emitter_address (32)
+  const emitterAddress = vaaBuffer.slice(offset, offset + 32);
+  offset += 32;
+  
+  // sequence (8)
+  const sequence = vaaBuffer.readBigUInt64BE(offset);
+  
+  return { emitterChain, emitterAddress, sequence };
 }
 

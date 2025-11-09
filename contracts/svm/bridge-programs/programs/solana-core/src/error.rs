@@ -31,8 +31,5 @@ pub enum BridgeError {
     
     #[msg("Amount too large")]
     AmountTooLarge,
-    
-    #[msg("Payload too large")]
-    PayloadTooLarge,
 }
 

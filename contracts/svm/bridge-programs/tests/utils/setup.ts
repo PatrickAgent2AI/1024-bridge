@@ -13,6 +13,21 @@ import { TOKEN_PROGRAM_ID, createMint, createAccount, mintTo, getAccount } from 
 import { GuardianKeyPair, generateGuardianKeys } from "./vaa";
 
 /**
+ * 生成确定性密钥对用于测试
+ * 确保所有测试文件使用相同的authority，避免BridgeConfig冲突
+ */
+export function getDeterministicKeypair(seed: string): Keypair {
+  const seedBuffer = Buffer.from(seed.padEnd(32, "0").slice(0, 32));
+  return Keypair.fromSeed(seedBuffer);
+}
+
+/**
+ * 测试环境使用的确定性payer密钥对  
+ * 所有测试文件共享此密钥对作为authority
+ */
+export const TEST_PAYER = getDeterministicKeypair("test-payer-solana-bridge-20251");
+
+/**
  * 测试Guardian密钥（19个secp256k1密钥对）
  */
 export const TEST_GUARDIAN_KEYS: GuardianKeyPair[] = generateGuardianKeys(19);
@@ -169,5 +184,49 @@ export const TEST_USERS = {
   bob: Keypair.generate(),
   charlie: Keypair.generate(),
 };
+
+/**
+ * 创建并填充VaaBuffer（使用三步骤机制）
+ */
+export async function createVaaDataAccount(
+  connection: anchor.web3.Connection,
+  payer: Keypair,
+  vaaBuffer: Buffer,
+  program?: anchor.Program
+): Promise<Keypair> {
+  if (!program) {
+    program = anchor.workspace.SolanaCore as anchor.Program;
+  }
+
+  const vaaAccount = Keypair.generate();
+  const vaaSize = vaaBuffer.length;
+
+  await program.methods
+    .initVaaBuffer(vaaSize)
+    .accounts({
+      vaaBuffer: vaaAccount.publicKey,
+      payer: payer.publicKey,
+      systemProgram: anchor.web3.SystemProgram.programId,
+    })
+    .signers([payer, vaaAccount])
+    .rpc();
+
+  const CHUNK_SIZE = 900;
+  for (let offset = 0; offset < vaaBuffer.length; offset += CHUNK_SIZE) {
+    const end = Math.min(offset + CHUNK_SIZE, vaaBuffer.length);
+    const chunk = vaaBuffer.slice(offset, end);
+
+    await program.methods
+      .appendVaaChunk(chunk, offset)
+      .accounts({
+        vaaBuffer: vaaAccount.publicKey,
+        payer: payer.publicKey,
+      })
+      .signers([payer])
+      .rpc();
+  }
+
+  return vaaAccount;
+}
 
 

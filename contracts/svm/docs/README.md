@@ -50,13 +50,20 @@
 ┌─────────────────────────────────────────────────────────────┐
 │ 1. EVM链发送消息，Guardian生成VAA                           │
 │                                                             │
-│ 2. Relayer调用 solana_core.post_vaa(vaa)                    │
-│    - 验证Guardian签名（13/19门限）                          │
-│    - 检查Guardian Set有效性                                 │
-│    - 防重放检查                                             │
-│    - 创建PostedVAA账户                                      │
+│ 2. Relayer使用三步骤提交VAA到Solana:                        │
+│    a) init_vaa_buffer(vaa_size)                             │
+│       - 创建VaaBuffer账户                                   │
+│    b) append_vaa_chunk(chunk, offset) × N                   │
+│       - 分块写入VAA数据（每块≤900字节）                     │
+│    c) post_vaa()                                            │
+│       - 从VaaBuffer读取完整VAA                              │
+│       - 验证Guardian签名（13/19门限）                       │
+│       - 检查Guardian Set有效性                              │
+│       - 防重放检查                                          │
+│       - 创建PostedVAA账户                                   │
 │                                                             │
-│ 3. 用户/Relayer调用 token_bridge.complete_transfer(vaa)     │
+│ 3. 用户/Relayer调用 token_bridge.complete_transfer()        │
+│    - 从PostedVAA读取payload                                 │
 │    - 解析TokenTransfer payload                              │
 │    - 判断原生/包装代币                                      │
 │    - 解锁或铸造SPL代币                                      │

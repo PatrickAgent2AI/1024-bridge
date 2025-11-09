@@ -45,11 +45,11 @@
 | 测试类型 | 覆盖率目标 | 用例数 | 预计时间 |
 |---------|-----------|--------|---------|
 | **程序单元测试** | 90%代码 | 53个 | 22分钟 |
-| **集成测试** | 80%流程 | 15个 | 25分钟 |
-| **E2E测试** | 100%关键流程 | 8个 | 30分钟 |
-| **总计** | - | **76个** | **77分钟** |
+| **集成测试** | 80%流程 | 6个 | 10分钟 |
+| **E2E测试** | 100%关键流程 | 7个 | 20分钟 |
+| **总计** | - | **66个** | **52分钟** |
 
-> **注**：已移除弃用的 create_wrapped 相关测试（2个），单元测试从55个调整为53个
+> **注**：已完全移除wrapped token相关测试，采用token binding方案（Lock/Unlock模式）
 
 ---
 
@@ -1087,13 +1087,15 @@ describe("Solana to Ethereum Transfer", () => {
 
 | 测试ID | 测试场景 | 优先级 | 预计时间 |
 |-------|---------|--------|---------|
-| E2E-SOL-003 | ERC20跨链到Solana | P0 | 2分钟 |
-| E2E-SOL-004 | Solana铸造wrappedToken | P0 | 1分钟 |
+| E2E-SOL-003 | ERC20跨链到Solana解锁绑定SPL | P0 | 2分钟 |
 
 **测试示例 E2E-SOL-003**:
 ```typescript
 describe("Ethereum to Solana Transfer", () => {
-  it("should lock ERC20 and mint wrapped SPL", async () => {
+  it("should lock ERC20 and unlock bound SPL token", async () => {
+    // 前提：已通过register_token_binding注册binding关系
+    // [1, eth_usdc, 900, sol_usdc] 已在Ethereum和Solana两端注册
+    
     // 1. Ethereum: 锁定ERC20
     const tx = await ethTokenVault.lockTokens(
       ethUSDC.address,
@@ -1116,12 +1118,12 @@ describe("Ethereum to Solana Transfer", () => {
       .postVaa(vaa)
       .rpc();
     
-    // 4. Solana: complete_transfer
+    // 4. Solana: complete_transfer (基于binding解锁已有SPL代币)
     const completeTx = await tokenBridge.methods
       .completeTransfer(vaa)
       .rpc();
     
-    // 5. 验证Solana余额
+    // 5. 验证Solana余额 (解锁的是原生SPL USDC，不是wrapped token)
     const account = await getAccount(
       connection,
       solanaRecipientTokenAccount
@@ -1147,6 +1149,132 @@ describe("Ethereum to Solana Transfer", () => {
 4. 验证两条链Guardian Set同步
 5. 测试过渡期内跨链消息
 6. 验证新旧Set都能工作
+```
+
+---
+
+### 4.4 完整跨链流程测试
+
+| 测试ID | 测试场景 | 优先级 | 预计时间 |
+|-------|---------|--------|---------|
+| E2E-SOL-006 | 完整往返测试 (Solana→Ethereum→Solana) | P1 | 5分钟 |
+| E2E-SOL-007 | 多用户并发跨链测试 | P1 | 3分钟 |
+| E2E-SOL-008 | 压力测试 - 大额转账 | P2 | 2分钟 |
+
+**测试示例 E2E-SOL-006**:
+```typescript
+describe("完整往返测试", () => {
+  it("should complete round trip: Solana→Ethereum→Solana", async () => {
+    // 1. Solana: 锁定1000 USDC发往Ethereum
+    await tokenBridge.methods
+      .transferTokens(
+        new BN(1000_000_000),
+        ETH_CHAIN_ID,
+        ethUsdcAddress,
+        ethRecipient
+      )
+      .rpc();
+    
+    // 2. 验证Solana代币已锁定
+    const custodyBalance1 = await getTokenBalance(connection, custodyAccount);
+    expect(custodyBalance1).to.equal(1000_000_000n);
+    
+    // 3. 模拟Ethereum解锁并返回500 USDC到Solana
+    const returnVaa = createTokenTransferVAA({
+      emitterChain: ETH_CHAIN_ID,
+      transferPayload: {
+        amount: BigInt(500_000_000),
+        tokenAddress: ethUsdcAddress,
+        recipient: alicePublicKey.toBuffer(),
+        targetToken: solUsdcMint.toBuffer(),
+        // ...
+      }
+    });
+    
+    // 4. Solana: 接收返回的代币
+    await coreProgram.methods.postVaa(returnVaa).rpc();
+    await tokenBridge.methods.completeTransfer(returnVaa).rpc();
+    
+    // 5. 验证Alice收到500 USDC
+    const aliceBalance = await getTokenBalance(connection, aliceTokenAccount);
+    expect(aliceBalance).to.equal(500_000_000n);
+  });
+});
+```
+
+**测试示例 E2E-SOL-007**:
+```typescript
+describe("多用户并发测试", () => {
+  it("should handle concurrent transfers from multiple users", async () => {
+    // 1. 创建3个用户，每人5000 USDC
+    const users = [];
+    for (let i = 0; i < 3; i++) {
+      const user = Keypair.generate();
+      const userAccount = await createAndMintTestToken(
+        connection, payer, solUsdcMint, user.publicKey,
+        BigInt(5000_000_000)
+      );
+      users.push({ keypair: user, account: userAccount });
+    }
+    
+    // 2. 所有用户并发发起跨链转账
+    const transfers = users.map((user, i) => 
+      tokenBridge.methods
+        .transferTokens(
+          new BN(1000_000_000),
+          ETH_CHAIN_ID,
+          ethUsdcAddress,
+          ethRecipient
+        )
+        .accounts({
+          tokenAccount: user.account,
+          tokenAuthority: user.keypair.publicKey,
+          // ...
+        })
+        .signers([user.keypair])
+        .rpc()
+    );
+    
+    await Promise.all(transfers);
+    
+    // 3. 验证所有转账成功
+    const custodyBalance = await getTokenBalance(connection, custodyAccount);
+    expect(custodyBalance).to.equal(3000_000_000n);
+  });
+});
+```
+
+**测试示例 E2E-SOL-008**:
+```typescript
+describe("大额转账压力测试", () => {
+  it("should handle large amount transfer", async () => {
+    // 1. 创建巨鲸账户，持有1,000,000 USDC
+    const whaleAccount = await createAndMintTestToken(
+      connection, payer, solUsdcMint, alice.publicKey,
+      BigInt(1_000_000_000_000)
+    );
+    
+    // 2. 转账100,000 USDC
+    const largeAmount = new BN(100_000_000_000);
+    
+    await tokenBridge.methods
+      .transferTokens(
+        largeAmount,
+        ETH_CHAIN_ID,
+        ethUsdcAddress,
+        ethRecipient
+      )
+      .rpc();
+    
+    // 3. 验证转账成功
+    const custodyBalance = await getTokenBalance(connection, custodyAccount);
+    expect(custodyBalance).to.equal(100_000_000_000n);
+    
+    // 4. 验证余额计算正确（无溢出）
+    const whaleBalance = await getTokenBalance(connection, whaleAccount);
+    expect(whaleBalance).to.equal(900_000_000_000n);
+  });
+});
 ```
 
 ---

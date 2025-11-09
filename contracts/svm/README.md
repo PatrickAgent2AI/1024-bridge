@@ -280,18 +280,21 @@ const signatures = guardianKeys
 // Solana程序验证真实签名
 ```
 
-### 2. Payload版本兼容
+### 2. 标准Payload格式
 
-新版Payload（133字节）向后兼容旧版（77字节）：
+统一的133字节Payload格式，包含完整的TokenBinding兑换信息：
 
 ```rust
-if payload.len() == 77 {
-    // 旧版本：1:1同币种兑换
-    target_token = source_token;
-    target_amount = source_amount;
-} else if payload.len() == 133 {
-    // 新版本：支持兑换信息
+pub fn validate_payload(payload: &[u8]) -> Result<()> {
+    require!(
+        payload.len() == 133,
+        TokenBridgeError::InvalidPayloadLength
+    );
+    
     // 解析完整字段
+    let payload = TokenTransferPayload::try_from_slice(payload)?;
+    // ... 验证所有字段
+    Ok(())
 }
 ```
 

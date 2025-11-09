@@ -1,0 +1,612 @@
+
+Found a 'test' script in the Anchor.toml. Running it as a test suite!
+
+Running test suite: "/workspace/newlife/contracts/svm/bridge-programs/Anchor.toml"
+
+yarn run v1.22.22
+$ /workspace/newlife/contracts/svm/bridge-programs/node_modules/.bin/ts-mocha -p ./tsconfig.json -t 1000000 'tests/**/*.ts'
+
+
+  bridge-programs（默认测试已禁用）
+请运行: yarn test:unit
+    ✔ 默认测试已禁用，请运行单元测试
+
+  密码学实现演示
+
+============================================================
+演示1: 生成19个Guardian密钥
+============================================================
+
+生成了 19 个Guardian密钥
+
+前3个Guardian:
+
+Guardian 0:
+  私钥: 0x0000000112345678... (32 bytes)
+  公钥: 0x50f4b8084510f2b1a2de65a8c6c07ddd... (64 bytes)
+  地址: 0x67374cbc0556dd8eaffc15b8d93270a829f69ee2 (20 bytes)
+
+Guardian 1:
+  私钥: 0x0000000212345678... (32 bytes)
+  公钥: 0x9c310472c735e420d3381cb217557ac5... (64 bytes)
+  地址: 0xeff19d7f53bdd609ac6bfa699b0a1612464798d0 (20 bytes)
+
+Guardian 2:
+  私钥: 0x0000000312345678... (32 bytes)
+  公钥: 0x2efc104fd244effcd5eb0f81af863933... (64 bytes)
+  地址: 0x7fac86a734e24a27377a22fce959df8b6423396d (20 bytes)
+    ✔ 演示1: Guardian密钥生成（secp256k1）
+
+============================================================
+演示2: ECDSA签名和验证
+============================================================
+
+Guardian地址: 0x08b446aa61922d253f5bb061d88e92f2946b7da1
+
+消息: "Hello Wormhole Bridge!"
+消息哈希: 0x6338cadf26a103127097f5619c083b48a24a05629912980c7a1ad46b0e93266d
+
+签名结果:
+  r: 0xa3be996ae059a93b55fcedb8330481ca02b56ec62f39ee08b5b5bfa86ebcad49
+  s: 0x7f9220df6d26c3903f27a8b1167e25a25d5584e67a50165b2a253173fdc60a8d
+  v: 1
+
+签名验证: ✓ 通过
+    ✔ 演示2: 签名和验证
+
+============================================================
+演示3: 构造TokenTransfer VAA
+============================================================
+
+使用 19 个Guardian密钥
+
+Payload内容:
+  类型: TokenTransfer (1)
+  金额: 1000000000 (1000 USDC)
+  源链: Ethereum (1)
+  目标链: Solana (2)
+
+使用前13个Guardian签名...
+
+VAA构造完成:
+  大小: 1072 bytes
+  版本: 1
+  Guardian Set索引: 0
+  签名数量: 13
+
+Body Hash: 0x256c669834e6f105a4134c49762ed8eb...
+
+签名验证结果: 13/13 ✓
+达到门限: YES ✓
+    ✔ 演示3: 完整VAA构造 (48ms)
+
+============================================================
+演示4: Guardian Set升级流程
+============================================================
+
+旧Guardian Set (索引0):
+  Guardian 0: 0x67374cbc0556dd8eaffc15b8d93270a829f69ee2
+  Guardian 18: 0xd6b88940652b25937b00e1b4a8820d5fd4620381
+
+新Guardian Set (索引1):
+  Guardian 0: 0xd9a284367b6d3e25a91c91b5a430af2593886eb9
+  Guardian 18: 0x1715eb68afba4d516ef1e068b55f5093bb4a2f59
+
+验证新旧Guardian不同:
+  Guardian 0 相同? YES ✓
+
+升级流程:
+  1. 使用旧Guardian Set (索引0) 签名升级VAA
+  2. 升级VAA包含新Guardian Set (索引1) 的地址
+  3. 新旧Set有7天过渡期
+  4. 过渡期后旧Set失效
+    ✔ 演示4: Guardian Set升级
+
+  跨链E2E测试
+    4.1 Solana → Ethereum
+
+========================================
+E2E测试: Solana → Ethereum
+========================================
+
+步骤1: Alice在Solana锁定1000 USDC
+  Alice余额: 10000 USDC
+  Alice余额: 9000 USDC
+  锁定成功 ✓
+
+步骤2: 验证跨链消息
+  消息序列号: 0
+  Payload长度: 133 bytes
+  消息发送成功 ✓
+
+步骤3: 模拟Guardian签名VAA
+  需要签名数量: 13/19
+  Guardian签名中... (使用真实secp256k1签名)
+  VAA就绪 ✓
+
+步骤4: 模拟Relayer提交到Ethereum
+  目标地址: 0xabcdef0000000000...
+  目标金额: 1000 USDC
+  (实际部署中由Ethereum合约解锁代币)
+
+========================================
+E2E测试完成 ✓
+========================================
+
+      ✔ E2E-SOL-001: SPL代币跨链到Ethereum (415ms)
+
+========================================
+验证: Ethereum解锁流程
+========================================
+
+在真实部署中:
+  1. Relayer监听Solana交易
+  2. Guardian网络签名VAA
+  3. Relayer提交VAA到Ethereum
+  4. Ethereum合约验证VAA签名
+  5. Ethereum合约从Vault解锁USDC给接收者
+
+本测试验证:
+  ✓ Solana代币已锁定到custody
+  ✓ 跨链消息已发送
+  ✓ VAA格式正确
+
+========================================
+验证完成 ✓
+========================================
+
+      ✔ E2E-SOL-002: Ethereum解锁原生ERC20
+    4.2 Ethereum → Solana
+
+========================================
+E2E测试: Ethereum → Solana
+========================================
+
+步骤1: 模拟Ethereum锁定ERC20
+  用户在Ethereum锁定1000 USDC
+  目标链: Solana
+  接收者: Bob
+
+步骤2: 模拟Guardian签名VAA
+  VAA大小: 1072 bytes
+  签名数量: 13/19 ✓
+
+步骤3: Relayer提交VAA到Solana
+      1) E2E-SOL-003: ERC20跨链到Solana
+
+========================================
+验证: Wrapped Token铸造
+========================================
+
+当前实现:
+  ✓ 使用Lock/Unlock模式
+  ✓ 代币预先锁定在custody
+  ✓ 接收时从custody解锁
+
+未来支持Mint/Burn模式:
+  - 首次跨链时创建wrapped版本
+  - 接收时铸造wrapped代币
+  - 返回时销毁wrapped代币
+
+当前custody余额: 5000 USDC
+      2) E2E-SOL-004: Solana铸造wrappedToken
+    4.3 Guardian升级跨链测试
+
+========================================
+E2E测试: Guardian Set升级
+========================================
+
+步骤1: 准备新Guardian Set
+  当前Guardian Set索引: 0
+  新Guardian Set索引: 1
+  Guardian数量: 19
+
+步骤2: 旧Guardian Set签名升级VAA
+  升级VAA大小: 1301 bytes
+  签名数量: 13/19 ✓
+
+步骤3: 执行Guardian Set升级
+      3) E2E-SOL-005: Solana Guardian升级原子性
+    4.4 完整跨链流程测试
+
+========================================
+E2E测试: 完整往返流程
+========================================
+
+第一段: Solana → Ethereum
+  Alice初始余额: 5000 USDC
+  Alice转账后余额: 4000 USDC
+  锁定成功 ✓
+
+模拟Ethereum处理...
+  (实际部署中在Ethereum解锁USDC)
+
+第二段: Ethereum → Solana
+      4) E2E-SOL-006: 完整往返测试 (Solana→Ethereum→Solana)
+
+========================================
+E2E测试: 多用户并发跨链
+========================================
+      5) E2E-SOL-007: 多用户并发跨链测试
+
+========================================
+E2E测试: 大额转账压力测试
+========================================
+      6) E2E-SOL-008: 压力测试 - 大额转账
+
+  程序集成测试
+    3.1 跨程序调用测试
+      7) "before all" hook for "INT-SOL-001: transfer_tokens → post_message"
+    3.2 Guardian Set升级测试
+      8) INT-SOL-004: 升级后旧Set仍可验证
+      9) INT-SOL-005: 升级后新Set可验证
+      10) INT-SOL-006: 过期后旧Set拒绝
+
+  solana-core 单元测试
+    2.1.1 initialize指令测试
+  Bridge已存在，跳过初始化（测试套件共享）
+      ✔ UNIT-SC-001: 正常初始化Bridge
+      ✔ UNIT-SC-002: 初始化Guardian Set
+      ✔ UNIT-SC-003: 设置初始message_fee
+      ✔ UNIT-SC-004: 重复初始化失败
+    2.1.2 post_message指令测试
+      ✔ UNIT-SC-005: 正常发送消息 (409ms)
+      ✔ UNIT-SC-006: 序列号递增 (408ms)
+      ✔ UNIT-SC-007: 手续费不足 (417ms)
+      ✔ UNIT-SC-008: payload大小限制
+      ✔ UNIT-SC-009: Bridge暂停时拒绝 (801ms)
+    2.1.3 post_vaa指令测试
+      11) UNIT-SC-010: 正常接收VAA
+      12) UNIT-SC-011: VAA签名验证成功
+      13) UNIT-SC-012: 签名数量不足(<13)
+      14) UNIT-SC-013: 无效签名
+      15) UNIT-SC-014: Guardian Set过期
+      16) UNIT-SC-015: VAA重复消费
+      ✔ UNIT-SC-016: 无效的VAA格式 (811ms)
+    2.1.4 update_guardian_set指令测试
+      17) UNIT-SC-017: 正常升级Guardian Set
+      18) UNIT-SC-018: 新旧Set并存(过渡期)
+旧Guardian Set尚未过期，跳过此测试
+      ✔ UNIT-SC-019: 旧Set过期后拒绝
+      ✔ UNIT-SC-020: 非治理VAA拒绝 (1212ms)
+
+  token-bridge 单元测试
+    2.2.1 transfer_tokens指令测试
+      ✔ UNIT-TB-001: 正常锁定SPL代币(1:1兑换) (1228ms)
+      ✔ UNIT-TB-002: 跨链兑换不同代币(USDC→USDT) (1216ms)
+      ✔ UNIT-TB-003: TokenBinding不存在失败 (1233ms)
+      ✔ UNIT-TB-004: TokenBinding未启用失败 (812ms)
+      ✔ UNIT-TB-005: 授权不足 (406ms)
+      ✔ UNIT-TB-006: 余额不足 (818ms)
+      ✔ UNIT-TB-007: 手续费不足 (406ms)
+      ✔ UNIT-TB-008: 无效目标链
+    2.2.2 complete_transfer指令测试
+      19) UNIT-TB-009: 解锁原生SPL代币(1:1兑换)
+      20) UNIT-TB-010: 跨链兑换不同代币接收
+      21) UNIT-TB-025: 兑换比率验证失败
+      22) UNIT-TB-026: 目标代币不匹配
+      ✔ UNIT-TB-027: VAA验证失败
+      23) UNIT-TB-028: 目标链不匹配
+      24) UNIT-TB-029: custody余额不足
+    2.2.3 register_token_binding指令测试
+      ✔ UNIT-TB-011: 正常注册单向代币绑定 (811ms)
+      ✔ UNIT-TB-012: 重复注册失败 (817ms)
+      ✔ UNIT-TB-013: 非管理员调用失败 (815ms)
+      ✔ UNIT-TB-014: 注册不同代币兑换对(多对多) (1624ms)
+      ✔ UNIT-TB-030: 注册出站和入站binding(双向) (1222ms)
+    2.2.4 register_bidirectional_binding指令测试
+      ✔ UNIT-TB-031: 双向注册同币种(1:1) (816ms)
+      ✔ UNIT-TB-032: 双向注册不同币种 (815ms)
+      ✔ UNIT-TB-033: 双向不对称兑换比率 (813ms)
+      ✔ UNIT-TB-034: 验证自动创建两个binding (814ms)
+      ✔ UNIT-TB-035: 非管理员调用失败 (820ms)
+    2.2.5 set_exchange_rate指令测试
+      ✔ UNIT-TB-015: 设置1:1兑换比率 (1214ms)
+      ✔ UNIT-TB-016: 设置自定义兑换比率 (1222ms)
+      ✔ UNIT-TB-017: 分母为0失败 (822ms)
+      ✔ UNIT-TB-018: TokenBinding不存在失败 (409ms)
+      ✔ UNIT-TB-019: 非管理员调用失败 (1223ms)
+    2.2.6 update_amm_config指令测试
+      ✔ UNIT-TB-020: 启用外部AMM定价 (1216ms)
+      ✔ UNIT-TB-021: 禁用外部AMM定价 (1221ms)
+      ✔ UNIT-TB-022: 非管理员调用失败 (1227ms)
+
+
+  46 passing (1m)
+  24 failing
+
+  1) 跨链E2E测试
+       4.2 Ethereum → Solana
+         E2E-SOL-003: ERC20跨链到Solana:
+     TypeError: src.toArrayLike is not a function
+      at BNLayout.encode (node_modules/@coral-xyz/borsh/src/index.ts:62:11)
+      at Structure.encode (node_modules/buffer-layout/lib/Layout.js:1263:26)
+      at BorshInstructionCoder.encode (node_modules/@coral-xyz/anchor/src/coder/borsh/instruction.ts:53:32)
+      at /workspace/newlife/contracts/svm/bridge-programs/node_modules/@coral-xyz/anchor/src/program/namespace/index.ts:62:43
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:60:15)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  2) 跨链E2E测试
+       4.2 Ethereum → Solana
+         E2E-SOL-004: Solana铸造wrappedToken:
+     AssertionError: expected 5000000000 to be a number or a date
+      at /workspace/newlife/contracts/svm/bridge-programs/tests/e2e/cross-chain.test.ts:543:36
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/e2e/cross-chain.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  3) 跨链E2E测试
+       4.3 Guardian升级跨链测试
+         E2E-SOL-005: Solana Guardian升级原子性:
+     Error: Signature verification failed.
+Missing signature for public key(s) [`Gj2NNcPgjiT9dZ9N57EFQopJfbMJxGQhSu7VGALimFPS`, `ywSj8KSWAXavP8bCgjCgaLGWt4UBTF4bLBSksTzFJ3B`].
+      at Transaction.serialize (node_modules/@solana/web3.js/src/transaction/legacy.ts:828:15)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:164:22)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  4) 跨链E2E测试
+       4.4 完整跨链流程测试
+         E2E-SOL-006: 完整往返测试 (Solana→Ethereum→Solana):
+     Error: Account `bridge` not provided.
+      at /workspace/newlife/contracts/svm/bridge-programs/node_modules/@coral-xyz/anchor/src/program/common.ts:51:15
+      at Array.forEach (<anonymous>)
+      at validateAccounts (node_modules/@coral-xyz/anchor/src/program/common.ts:46:14)
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:44:23)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  5) 跨链E2E测试
+       4.4 完整跨链流程测试
+         E2E-SOL-007: 多用户并发跨链测试:
+     Error: Account `bridgeConfig` not provided.
+      at /workspace/newlife/contracts/svm/bridge-programs/node_modules/@coral-xyz/anchor/src/program/common.ts:51:15
+      at Array.forEach (<anonymous>)
+      at validateAccounts (node_modules/@coral-xyz/anchor/src/program/common.ts:46:14)
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:44:23)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  6) 跨链E2E测试
+       4.4 完整跨链流程测试
+         E2E-SOL-008: 压力测试 - 大额转账:
+     Error: Account `bridgeConfig` not provided.
+      at /workspace/newlife/contracts/svm/bridge-programs/node_modules/@coral-xyz/anchor/src/program/common.ts:51:15
+      at Array.forEach (<anonymous>)
+      at validateAccounts (node_modules/@coral-xyz/anchor/src/program/common.ts:46:14)
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:44:23)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  7) 程序集成测试
+       3.1 跨程序调用测试
+         "before all" hook for "INT-SOL-001: transfer_tokens → post_message":
+     Error: Account `bridgeConfig` not provided.
+      at /workspace/newlife/contracts/svm/bridge-programs/node_modules/@coral-xyz/anchor/src/program/common.ts:51:15
+      at Array.forEach (<anonymous>)
+      at validateAccounts (node_modules/@coral-xyz/anchor/src/program/common.ts:46:14)
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:44:23)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  8) 程序集成测试
+       3.2 Guardian Set升级测试
+         INT-SOL-004: 升级后旧Set仍可验证:
+     Error: Signature verification failed.
+Missing signature for public key(s) [`4tFQufo7SFbwWXzyPaM8WbxTSaqxzpwJnkKCLknZDBR6`, `ywSj8KSWAXavP8bCgjCgaLGWt4UBTF4bLBSksTzFJ3B`].
+      at Transaction.serialize (node_modules/@solana/web3.js/src/transaction/legacy.ts:828:15)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:164:22)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  9) 程序集成测试
+       3.2 Guardian Set升级测试
+         INT-SOL-005: 升级后新Set可验证:
+     Error: Account `bridge` not provided.
+      at /workspace/newlife/contracts/svm/bridge-programs/node_modules/@coral-xyz/anchor/src/program/common.ts:51:15
+      at Array.forEach (<anonymous>)
+      at validateAccounts (node_modules/@coral-xyz/anchor/src/program/common.ts:46:14)
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:44:23)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  10) 程序集成测试
+       3.2 Guardian Set升级测试
+         INT-SOL-006: 过期后旧Set拒绝:
+
+      AssertionError: expected +0 to be above +0
+      + expected - actual
+
+
+      at /workspace/newlife/contracts/svm/bridge-programs/tests/integration/integration.test.ts:691:51
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/integration/integration.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  11) solana-core 单元测试
+       2.1.3 post_vaa指令测试
+         UNIT-SC-010: 正常接收VAA:
+     TypeError: src.toArrayLike is not a function
+      at BNLayout.encode (node_modules/@coral-xyz/borsh/src/index.ts:62:11)
+      at Structure.encode (node_modules/buffer-layout/lib/Layout.js:1263:26)
+      at BorshInstructionCoder.encode (node_modules/@coral-xyz/anchor/src/coder/borsh/instruction.ts:53:32)
+      at /workspace/newlife/contracts/svm/bridge-programs/node_modules/@coral-xyz/anchor/src/program/namespace/index.ts:62:43
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:60:15)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  12) solana-core 单元测试
+       2.1.3 post_vaa指令测试
+         UNIT-SC-011: VAA签名验证成功:
+     TypeError: src.toArrayLike is not a function
+      at BNLayout.encode (node_modules/@coral-xyz/borsh/src/index.ts:62:11)
+      at Structure.encode (node_modules/buffer-layout/lib/Layout.js:1263:26)
+      at BorshInstructionCoder.encode (node_modules/@coral-xyz/anchor/src/coder/borsh/instruction.ts:53:32)
+      at /workspace/newlife/contracts/svm/bridge-programs/node_modules/@coral-xyz/anchor/src/program/namespace/index.ts:62:43
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:60:15)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  13) solana-core 单元测试
+       2.1.3 post_vaa指令测试
+         UNIT-SC-012: 签名数量不足(<13):
+     AssertionError: expected 'src.toArrayLike is not a function' to include 'Insufficient signatures'
+      at /workspace/newlife/contracts/svm/bridge-programs/tests/unit/solana-core.test.ts:423:34
+      at Generator.throw (<anonymous>)
+      at rejected (tests/unit/solana-core.test.ts:39:65)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  14) solana-core 单元测试
+       2.1.3 post_vaa指令测试
+         UNIT-SC-013: 无效签名:
+     AssertionError: expected 'src.toArrayLike is not a function' to include 'Invalid signature'
+      at /workspace/newlife/contracts/svm/bridge-programs/tests/unit/solana-core.test.ts:472:34
+      at Generator.throw (<anonymous>)
+      at rejected (tests/unit/solana-core.test.ts:39:65)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  15) solana-core 单元测试
+       2.1.3 post_vaa指令测试
+         UNIT-SC-014: Guardian Set过期:
+     Error: Signature verification failed.
+Missing signature for public key(s) [`2Jb3QXGxC4u3uLnve86JNiVkTxSodYgg5b5yYKBA5xJ2`, `ywSj8KSWAXavP8bCgjCgaLGWt4UBTF4bLBSksTzFJ3B`].
+      at Transaction.serialize (node_modules/@solana/web3.js/src/transaction/legacy.ts:828:15)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:164:22)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  16) solana-core 单元测试
+       2.1.3 post_vaa指令测试
+         UNIT-SC-015: VAA重复消费:
+     TypeError: src.toArrayLike is not a function
+      at BNLayout.encode (node_modules/@coral-xyz/borsh/src/index.ts:62:11)
+      at Structure.encode (node_modules/buffer-layout/lib/Layout.js:1263:26)
+      at BorshInstructionCoder.encode (node_modules/@coral-xyz/anchor/src/coder/borsh/instruction.ts:53:32)
+      at /workspace/newlife/contracts/svm/bridge-programs/node_modules/@coral-xyz/anchor/src/program/namespace/index.ts:62:43
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:60:15)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  17) solana-core 单元测试
+       2.1.4 update_guardian_set指令测试
+         UNIT-SC-017: 正常升级Guardian Set:
+     Error: Signature verification failed.
+Missing signature for public key(s) [`6ks7sEMPDFQNYJ4M7uUiExzrhc6GTpqSTGbfc6HEM8S9`, `HwCQDTkvQzjqddy3iZ2FL7bvkeVmC9eHYRkDieRGyMCB`].
+      at Transaction.serialize (node_modules/@solana/web3.js/src/transaction/legacy.ts:828:15)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:164:22)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  18) solana-core 单元测试
+       2.1.4 update_guardian_set指令测试
+         UNIT-SC-018: 新旧Set并存(过渡期):
+     Error: Account does not exist or has no data ywSj8KSWAXavP8bCgjCgaLGWt4UBTF4bLBSksTzFJ3B
+      at AccountClient.fetch (node_modules/@coral-xyz/anchor/src/program/namespace/account.ts:168:13)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  19) token-bridge 单元测试
+       2.2.2 complete_transfer指令测试
+         UNIT-TB-009: 解锁原生SPL代币(1:1兑换):
+     TypeError: src.toArrayLike is not a function
+      at BNLayout.encode (node_modules/@coral-xyz/borsh/src/index.ts:62:11)
+      at Structure.encode (node_modules/buffer-layout/lib/Layout.js:1263:26)
+      at BorshInstructionCoder.encode (node_modules/@coral-xyz/anchor/src/coder/borsh/instruction.ts:53:32)
+      at /workspace/newlife/contracts/svm/bridge-programs/node_modules/@coral-xyz/anchor/src/program/namespace/index.ts:62:43
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:60:15)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  20) token-bridge 单元测试
+       2.2.2 complete_transfer指令测试
+         UNIT-TB-010: 跨链兑换不同代币接收:
+     TypeError: src.toArrayLike is not a function
+      at BNLayout.encode (node_modules/@coral-xyz/borsh/src/index.ts:62:11)
+      at Structure.encode (node_modules/buffer-layout/lib/Layout.js:1263:26)
+      at BorshInstructionCoder.encode (node_modules/@coral-xyz/anchor/src/coder/borsh/instruction.ts:53:32)
+      at /workspace/newlife/contracts/svm/bridge-programs/node_modules/@coral-xyz/anchor/src/program/namespace/index.ts:62:43
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:60:15)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  21) token-bridge 单元测试
+       2.2.2 complete_transfer指令测试
+         UNIT-TB-025: 兑换比率验证失败:
+     TypeError: src.toArrayLike is not a function
+      at BNLayout.encode (node_modules/@coral-xyz/borsh/src/index.ts:62:11)
+      at Structure.encode (node_modules/buffer-layout/lib/Layout.js:1263:26)
+      at BorshInstructionCoder.encode (node_modules/@coral-xyz/anchor/src/coder/borsh/instruction.ts:53:32)
+      at /workspace/newlife/contracts/svm/bridge-programs/node_modules/@coral-xyz/anchor/src/program/namespace/index.ts:62:43
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:60:15)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  22) token-bridge 单元测试
+       2.2.2 complete_transfer指令测试
+         UNIT-TB-026: 目标代币不匹配:
+     TypeError: src.toArrayLike is not a function
+      at BNLayout.encode (node_modules/@coral-xyz/borsh/src/index.ts:62:11)
+      at Structure.encode (node_modules/buffer-layout/lib/Layout.js:1263:26)
+      at BorshInstructionCoder.encode (node_modules/@coral-xyz/anchor/src/coder/borsh/instruction.ts:53:32)
+      at /workspace/newlife/contracts/svm/bridge-programs/node_modules/@coral-xyz/anchor/src/program/namespace/index.ts:62:43
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:60:15)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  23) token-bridge 单元测试
+       2.2.2 complete_transfer指令测试
+         UNIT-TB-028: 目标链不匹配:
+     TypeError: src.toArrayLike is not a function
+      at BNLayout.encode (node_modules/@coral-xyz/borsh/src/index.ts:62:11)
+      at Structure.encode (node_modules/buffer-layout/lib/Layout.js:1263:26)
+      at BorshInstructionCoder.encode (node_modules/@coral-xyz/anchor/src/coder/borsh/instruction.ts:53:32)
+      at /workspace/newlife/contracts/svm/bridge-programs/node_modules/@coral-xyz/anchor/src/program/namespace/index.ts:62:43
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:60:15)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  24) token-bridge 单元测试
+       2.2.2 complete_transfer指令测试
+         UNIT-TB-029: custody余额不足:
+     TypeError: src.toArrayLike is not a function
+      at BNLayout.encode (node_modules/@coral-xyz/borsh/src/index.ts:62:11)
+      at Structure.encode (node_modules/buffer-layout/lib/Layout.js:1263:26)
+      at BorshInstructionCoder.encode (node_modules/@coral-xyz/anchor/src/coder/borsh/instruction.ts:53:32)
+      at /workspace/newlife/contracts/svm/bridge-programs/node_modules/@coral-xyz/anchor/src/program/namespace/index.ts:62:43
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:60:15)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+
+
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.

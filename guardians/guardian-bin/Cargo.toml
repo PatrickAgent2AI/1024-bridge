@@ -1,0 +1,18 @@
+[package]
+name = "guardian-bin"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "guardian"
+path = "src/main.rs"
+
+[dependencies]
+guardian-core = { workspace = true }
+guardian-evm = { workspace = true }
+guardian-solana = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+

@@ -1,8 +1,11 @@
 # 跨链桥项目 - API规格说明书
 
-> **文档版本**: v2.0  
+> **文档版本**: v2.1  
 > **创建日期**: 2025-11-08  
-> **更新说明**: 聚焦宏观接口，添加模块间集成接口，移除原生代币支持
+> **最后更新**: 2025-11-09  
+> **更新说明**: 
+> - v2.1: 添加TokenBinding机制，更新Payload格式（支持跨链代币兑换）
+> - v2.0: 聚焦宏观接口，添加模块间集成接口，移除原生代币支持
 
 ---
 
@@ -772,6 +775,41 @@ async fn watch_solana_transactions() {
 
 ---
 
+#### 7.1.3 Payload解析与验证（Guardian）
+
+**重要**: Guardian不验证TokenBinding，只签名原始消息
+
+```rust
+// Guardian处理流程
+async fn process_observation(observation: Observation) -> Result<()> {
+    // 1. 验证Payload长度
+    let payload_length = observation.payload.len();
+    if payload_length != 157 {
+        return Err(Error::InvalidPayloadLength {
+            expected: 157,
+            actual: payload_length,
+        });
+    }
+    
+    // 2. 签名原始消息（不关心业务逻辑）
+    let message_hash = keccak256(&observation.payload);
+    let signature = sign_with_guardian_key(message_hash)?;
+    
+    // 3. 广播到P2P网络
+    broadcast_signature(observation.id, signature).await?;
+    
+    Ok(())
+}
+```
+
+**关键点**:
+- ✅ Guardian只验证消息格式，不验证TokenBinding是否存在
+- ✅ Guardian只接受标准Payload长度（157字节）
+- ✅ TokenBinding验证由目标链合约/程序执行
+- ✅ 这保证了Guardian的通用性和简洁性
+
+---
+
 ### 7.2 Relayer → Guardian：VAA获取接口
 
 Relayer从Guardian API获取已签名的VAA：
@@ -896,6 +934,131 @@ pub async fn submit_to_solana(
     Ok(tx)
 }
 ```
+
+---
+
+#### 7.3.3 目标链TokenBinding验证流程
+
+**重要**: TokenBinding验证在目标链的unlockTokens/complete_transfer中执行
+
+**EVM链验证流程**:
+```solidity
+// TokenVault.unlockTokens
+function unlockTokens(bytes memory vaa) external returns (bool) {
+    // 1. 验证VAA签名（BridgeCore）
+    bool valid = bridgeCore.receiveMessage(vaa);
+    require(valid, "Invalid VAA");
+    
+    // 2. 解析Payload
+    TokenTransferPayload memory payload = parsePayload(vaa);
+    
+    // 3. 查询TokenBinding（关键步骤）
+    bytes32 bindingKey = keccak256(abi.encodePacked(
+        payload.tokenChain,
+        payload.tokenAddress,
+        payload.recipientChain,
+        payload.targetToken
+    ));
+    TokenBinding storage binding = tokenBindings[bindingKey];
+    
+    // 4. 验证TokenBinding存在且已启用
+    require(binding.enabled, "TokenBinding not enabled");
+    
+    // 5. 验证兑换比率一致性（防篡改）
+    uint256 expectedAmount = payload.amount 
+        * binding.rateNumerator 
+        / binding.rateDenominator;
+    require(
+        payload.targetAmount == expectedAmount,
+        "Exchange rate mismatch"
+    );
+    
+    // 6. 验证目标代币匹配
+    require(
+        payload.targetToken == bytes32(uint256(uint160(binding.targetToken))),
+        "Target token mismatch"
+    );
+    
+    // 7. 解锁代币
+    IERC20(binding.targetToken).transfer(
+        address(uint160(uint256(payload.recipient))),
+        payload.targetAmount
+    );
+    
+    return true;
+}
+```
+
+**Solana链验证流程**:
+```rust
+// token_bridge::complete_transfer
+pub fn complete_transfer(
+    ctx: Context<CompleteTransfer>,
+    vaa: Vec<u8>,
+) -> Result<()> {
+    // 1. 验证VAA（solana-core）
+    solana_core::cpi::post_vaa(ctx.accounts.as_post_vaa_context(), vaa)?;
+    
+    // 2. 解析Payload
+    let payload = TokenTransferPayload::try_from_slice(&posted_vaa.payload)?;
+    
+    // 3. 查询TokenBinding（使用PDA）
+    let binding_seeds = [
+        b"TokenBinding",
+        &payload.token_chain.to_le_bytes(),
+        payload.token_address.as_ref(),
+        &payload.recipient_chain.to_le_bytes(),
+        payload.target_token.as_ref(),
+    ];
+    // ctx.accounts.token_binding验证PDA匹配
+    
+    // 4. 验证TokenBinding已启用
+    require!(
+        ctx.accounts.token_binding.enabled,
+        TokenBridgeError::TokenBindingNotEnabled
+    );
+    
+    // 5. 验证兑换比率一致性
+    let expected_amount = payload.amount
+        .checked_mul(ctx.accounts.token_binding.rate_numerator)
+        .unwrap()
+        .checked_div(ctx.accounts.token_binding.rate_denominator)
+        .unwrap();
+    require!(
+        payload.target_amount == expected_amount,
+        TokenBridgeError::InvalidExchangeRate
+    );
+    
+    // 6. 验证目标代币Mint匹配
+    require!(
+        ctx.accounts.target_token_mint.key() == Pubkey::from(payload.target_token),
+        TokenBridgeError::TargetTokenMismatch
+    );
+    
+    // 7. 转账代币
+    token::transfer(
+        CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: ctx.accounts.custody_account.to_account_info(),
+                to: ctx.accounts.recipient_account.to_account_info(),
+                authority: ctx.accounts.custody_authority.to_account_info(),
+            },
+        ),
+        payload.target_amount,
+    )?;
+    
+    Ok(())
+}
+```
+
+**关键验证点总结**:
+1. ✅ **VAA签名验证**（Guardian共识）
+2. ✅ **TokenBinding存在性检查**（映射关系已注册）
+3. ✅ **TokenBinding启用状态**（管理员可以禁用某些映射）
+4. ✅ **兑换比率一致性**（防止VAA中的比率被篡改）
+5. ✅ **目标代币匹配**（确保转账到正确的代币）
+6. ✅ **余额充足性**（custody账户有足够代币）
 
 ---
 
@@ -1111,27 +1274,137 @@ pub struct Signature {
 
 ### 9.2 Token Transfer Payload
 
+**功能**: 支持跨链代币兑换和TokenBinding验证
+
 ```solidity
 struct TokenTransferPayload {
-    uint8 payloadType;          // 1 = token transfer
-    uint256 amount;             // 转账数量
-    bytes32 tokenAddress;       // 代币地址（32字节）
-    uint16 tokenChain;          // 代币源链
+    uint8 payloadType;          // 1 = token transfer with exchange
+    uint256 amount;             // 源链锁定数量
+    bytes32 tokenAddress;       // 源链代币地址（32字节）
+    uint16 tokenChain;          // 源链ID
     bytes32 recipient;          // 接收者地址
-    uint16 recipientChain;      // 接收者链
+    uint16 recipientChain;      // 目标链ID
+    bytes32 targetToken;        // 目标链代币地址（用户选择）
+    uint64 targetAmount;        // 目标链接收数量（计算后）
+    uint64 exchangeRateNum;     // 兑换比率分子
+    uint64 exchangeRateDenom;   // 兑换比率分母
 }
 ```
 
-**编码**:
+**字节布局**:
+```
+Offset  Size  Field
+------  ----  -----
+0       1     payloadType
+1       32    amount (uint256, big-endian)
+33      32    tokenAddress
+65      2     tokenChain (uint16, big-endian)
+67      32    recipient
+99      2     recipientChain (uint16, big-endian)
+101     32    targetToken
+133     8     targetAmount (uint64, big-endian)
+141     8     exchangeRateNum (uint64, big-endian)
+149     8     exchangeRateDenom (uint64, big-endian)
+------
+总计: 157字节
+```
+
+**编码示例**:
 ```solidity
+// 示例1: USDC → USDC (同币种兑换，1:1)
 bytes memory payload = abi.encodePacked(
-    uint8(1),              // payloadType
-    amount,
-    tokenAddress,
-    tokenChain,
-    recipient,
-    recipientChain
+    uint8(1),                      // payloadType
+    uint256(1000e6),               // amount: 1000 USDC
+    bytes32(uint256(uint160(sourceToken))),  // tokenAddress
+    uint16(1),                     // tokenChain: Ethereum
+    recipientBytes32,              // recipient
+    uint16(900),                   // recipientChain: Solana
+    bytes32(uint256(uint160(targetToken))),  // targetToken: Solana USDC
+    uint64(1000e6),                // targetAmount: 1000 USDC
+    uint64(1),                     // exchangeRateNum
+    uint64(1)                      // exchangeRateDenom
 );
+
+// 示例2: USDC → USDT (不同币种兑换，998:1000)
+bytes memory payload = abi.encodePacked(
+    uint8(1),
+    uint256(1000e6),               // amount: 1000 USDC
+    bytes32(uint256(uint160(usdcAddress))),
+    uint16(1),                     // Ethereum
+    recipientBytes32,
+    uint16(900),                   // Solana
+    bytes32(uint256(uint160(usdtAddress))),  // targetToken: USDT
+    uint64(998e6),                 // targetAmount: 998 USDT (兑换后)
+    uint64(998),                   // exchangeRateNum
+    uint64(1000)                   // exchangeRateDenom
+);
+```
+
+---
+
+### 9.2.3 TokenBinding数据结构
+
+**功能**: 存储代币跨链映射关系和兑换配置
+
+**EVM实现**:
+```solidity
+struct TokenBinding {
+    uint16 sourceChain;          // 源链ID
+    bytes32 sourceToken;         // 源链代币地址（32字节）
+    uint16 targetChain;          // 目标链ID
+    bytes32 targetToken;         // 目标链代币地址（32字节）
+    uint64 rateNumerator;        // 兑换比率分子
+    uint64 rateDenominator;      // 兑换比率分母
+    bool enabled;                // 是否启用
+    uint256 createdAt;           // 创建时间
+}
+
+// 存储：支持多对多映射
+// mapping: keccak256(sourceChain, sourceToken, targetChain, targetToken) => TokenBinding
+mapping(bytes32 => TokenBinding) public tokenBindings;
+```
+
+**Solana实现**:
+```rust
+#[account]
+pub struct TokenBinding {
+    pub source_chain: u16,
+    pub source_token: [u8; 32],
+    pub target_chain: u16,
+    pub target_token: [u8; 32],
+    pub rate_numerator: u64,
+    pub rate_denominator: u64,
+    pub use_external_price: bool,    // 预留：AMM动态定价
+    pub amm_program_id: Pubkey,       // 预留：外部AMM程序
+    pub enabled: bool,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+```
+
+**PDA推导（Solana）**:
+```rust
+let (token_binding_pda, _) = Pubkey::find_program_address(
+    &[
+        b"TokenBinding",
+        source_chain.to_le_bytes().as_ref(),
+        source_token.as_ref(),
+        target_chain.to_le_bytes().as_ref(),
+        target_token.as_ref(),  // 支持多对多
+    ],
+    program_id
+);
+```
+
+**多对多关系示例**:
+```
+Ethereum USDC (Chain 1) 可以绑定到：
+  → [1, eth_usdc, 900, sol_usdc]    rate=1:1        (Solana USDC)
+  → [1, eth_usdc, 900, sol_usdt]    rate=998:1000   (Solana USDT)
+  → [1, eth_usdc, 56, bsc_busd]     rate=999:1000   (BSC BUSD)
+  → [1, eth_usdc, 137, poly_usdc]   rate=1:1        (Polygon USDC)
+
+用户转账时通过targetToken参数选择目标代币
 ```
 
 ---

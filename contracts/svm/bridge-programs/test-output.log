@@ -1,0 +1,1049 @@
+WARNING: `anchor-lang` version(0.30.1) and the current CLI version(0.32.1) don't match.
+
+	This can lead to unwanted behavior. To use the same CLI version, add:
+
+	[toolchain]
+	anchor_version = "0.30.1"
+
+	to Anchor.toml
+
+WARNING: Adding `solana-program` as a separate dependency might cause conflicts.
+To solve, remove the `solana-program` dependency and use the exported crate from `anchor-lang`.
+`use solana_program` becomes `use anchor_lang::solana_program`.
+Program name: `solana-core`
+
+   Compiling solana-core v0.1.0 (/workspace/newlife/contracts/svm/bridge-programs/programs/solana-core)
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/solana-core/src/lib.rs:11:1
+   |
+11 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: `#[warn(unexpected_cfgs)]` on by default
+   = note: this warning originates in the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/solana-core/src/lib.rs:11:1
+   |
+11 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/solana-core/src/lib.rs:200:10
+    |
+200 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/solana-core/src/lib.rs:226:10
+    |
+226 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/solana-core/src/lib.rs:263:10
+    |
+263 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/solana-core/src/lib.rs:289:10
+    |
+289 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/solana-core/src/lib.rs:324:10
+    |
+324 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/solana-core/src/lib.rs:336:10
+    |
+336 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/solana-core/src/lib.rs:351:10
+    |
+351 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: `solana-core` (lib) generated 14 warnings (5 duplicates)
+   Compiling token-bridge v0.1.0 (/workspace/newlife/contracts/svm/bridge-programs/programs/token-bridge)
+warning: unexpected `cfg` condition value: `custom-heap`
+  --> programs/token-bridge/src/lib.rs:13:1
+   |
+13 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `custom-heap` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: `#[warn(unexpected_cfgs)]` on by default
+   = note: this warning originates in the macro `$crate::custom_heap_default` which comes from the expansion of the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `custom-panic`
+  --> programs/token-bridge/src/lib.rs:13:1
+   |
+13 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `custom-panic` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::custom_panic_default` which comes from the expansion of the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unused import: `anchor_lang::solana_program`
+ --> programs/token-bridge/src/lib.rs:3:5
+  |
+3 | use anchor_lang::solana_program;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/token-bridge/src/lib.rs:13:1
+   |
+13 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/token-bridge/src/lib.rs:13:1
+   |
+13 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/token-bridge/src/lib.rs:285:10
+    |
+285 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/token-bridge/src/lib.rs:302:10
+    |
+302 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/token-bridge/src/lib.rs:324:10
+    |
+324 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/token-bridge/src/lib.rs:375:10
+    |
+375 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/token-bridge/src/lib.rs:400:10
+    |
+400 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/token-bridge/src/lib.rs:433:10
+    |
+433 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/token-bridge/src/lib.rs:481:10
+    |
+481 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/token-bridge/src/lib.rs:507:10
+    |
+507 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/token-bridge/src/lib.rs:533:10
+    |
+533 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: `token-bridge` (lib) generated 19 warnings (5 duplicates) (run `cargo fix --lib -p token-bridge` to apply 1 suggestion)
+    Finished `release` profile [optimized] target(s) in 5.51s
+   Compiling solana-core v0.1.0 (/workspace/newlife/contracts/svm/bridge-programs/programs/solana-core)
+   Compiling token-bridge v0.1.0 (/workspace/newlife/contracts/svm/bridge-programs/programs/token-bridge)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.05s
+     Running unittests src/lib.rs (/workspace/newlife/contracts/svm/bridge-programs/target/debug/deps/token_bridge-302e5b4c28fefe5b)
+   Compiling solana-core v0.1.0 (/workspace/newlife/contracts/svm/bridge-programs/programs/solana-core)
+warning: unexpected `cfg` condition value: `custom-heap`
+  --> programs/solana-core/src/lib.rs:11:1
+   |
+11 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `custom-heap` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: `#[warn(unexpected_cfgs)]` on by default
+   = note: this warning originates in the macro `$crate::custom_heap_default` which comes from the expansion of the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `custom-panic`
+  --> programs/solana-core/src/lib.rs:11:1
+   |
+11 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `custom-panic` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::custom_panic_default` which comes from the expansion of the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/solana-core/src/lib.rs:11:1
+   |
+11 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs/solana-core/src/lib.rs:11:1
+   |
+11 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/solana-core/src/lib.rs:200:10
+    |
+200 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/solana-core/src/lib.rs:226:10
+    |
+226 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/solana-core/src/lib.rs:263:10
+    |
+263 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/solana-core/src/lib.rs:289:10
+    |
+289 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/solana-core/src/lib.rs:324:10
+    |
+324 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/solana-core/src/lib.rs:336:10
+    |
+336 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs/solana-core/src/lib.rs:351:10
+    |
+351 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = help: consider adding `anchor-debug` as a feature in `Cargo.toml`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: `solana-core` (lib) generated 16 warnings (5 duplicates)
+    Finished `release` profile [optimized] target(s) in 2.59s
+   Compiling solana-core v0.1.0 (/workspace/newlife/contracts/svm/bridge-programs/programs/solana-core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.53s
+     Running unittests src/lib.rs (/workspace/newlife/contracts/svm/bridge-programs/target/debug/deps/solana_core-1dea78f8e556504f)
+
+Found a 'test' script in the Anchor.toml. Running it as a test suite!
+
+Running test suite: "/workspace/newlife/contracts/svm/bridge-programs/Anchor.toml"
+
+Error: websocket error
+Error: websocket error
+yarn run v1.22.22
+$ /workspace/newlife/contracts/svm/bridge-programs/node_modules/.bin/ts-mocha -p ./tsconfig.json -t 1000000 'tests/**/*.ts'
+(node:780779) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/newlife/contracts/svm/bridge-programs/tests/bridge-programs.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/newlife/contracts/svm/bridge-programs/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+  bridge-programs（默认测试已禁用）
+请运行: yarn test:unit
+    ✔ 默认测试已禁用，请运行单元测试
+
+  密码学实现演示
+
+============================================================
+演示1: 生成19个Guardian密钥
+============================================================
+
+生成了 19 个Guardian密钥
+
+前3个Guardian:
+
+Guardian 0:
+  私钥: 0x0000000112345678... (32 bytes)
+  公钥: 0x50f4b8084510f2b1a2de65a8c6c07ddd... (64 bytes)
+  地址: 0x67374cbc0556dd8eaffc15b8d93270a829f69ee2 (20 bytes)
+
+Guardian 1:
+  私钥: 0x0000000212345678... (32 bytes)
+  公钥: 0x9c310472c735e420d3381cb217557ac5... (64 bytes)
+  地址: 0xeff19d7f53bdd609ac6bfa699b0a1612464798d0 (20 bytes)
+
+Guardian 2:
+  私钥: 0x0000000312345678... (32 bytes)
+  公钥: 0x2efc104fd244effcd5eb0f81af863933... (64 bytes)
+  地址: 0x7fac86a734e24a27377a22fce959df8b6423396d (20 bytes)
+    ✔ 演示1: Guardian密钥生成（secp256k1）
+
+============================================================
+演示2: ECDSA签名和验证
+============================================================
+
+Guardian地址: 0x2b88aab64cd505c4072615950d27957c810a60af
+
+消息: "Hello Wormhole Bridge!"
+消息哈希: 0x6338cadf26a103127097f5619c083b48a24a05629912980c7a1ad46b0e93266d
+
+签名结果:
+  r: 0x0a73d96a0fb9f1f11a7d5045e1ce7820950270c4b7761dd264959f81a177b084
+  s: 0x7235829a717f5eb89ee922d4f71e8116495efa1e3a5807319a1378f171da6a6f
+  v: 0
+
+签名验证: ✓ 通过
+    ✔ 演示2: 签名和验证
+
+============================================================
+演示3: 构造TokenTransfer VAA
+============================================================
+
+使用 19 个Guardian密钥
+
+Payload内容:
+  类型: TokenTransfer (1)
+  金额: 1000000000 (1000 USDC)
+  源链: Ethereum (1)
+  目标链: Solana (2)
+
+使用前13个Guardian签名...
+    1) 演示3: 完整VAA构造
+
+============================================================
+演示4: Guardian Set升级流程
+============================================================
+
+旧Guardian Set (索引0):
+  Guardian 0: 0x67374cbc0556dd8eaffc15b8d93270a829f69ee2
+  Guardian 18: 0xd6b88940652b25937b00e1b4a8820d5fd4620381
+
+新Guardian Set (索引1):
+  Guardian 0: 0xd9a284367b6d3e25a91c91b5a430af2593886eb9
+  Guardian 18: 0x1715eb68afba4d516ef1e068b55f5093bb4a2f59
+
+验证新旧Guardian不同:
+  Guardian 0 相同? YES ✓
+
+升级流程:
+  1. 使用旧Guardian Set (索引0) 签名升级VAA
+  2. 升级VAA包含新Guardian Set (索引1) 的地址
+  3. 新旧Set有7天过渡期
+  4. 过渡期后旧Set失效
+    ✔ 演示4: Guardian Set升级
+
+  跨链E2E测试
+    4.1 Solana → Ethereum
+
+========================================
+E2E测试: Solana → Ethereum
+========================================
+
+步骤1: Alice在Solana锁定1000 USDC
+  Alice余额: 10000 USDC
+  Alice余额: 9000 USDC
+  锁定成功 ✓
+
+步骤2: 验证跨链消息
+  消息序列号: 0
+  Payload长度: 133 bytes
+  消息发送成功 ✓
+
+步骤3: 模拟Guardian签名VAA
+  需要签名数量: 13/19
+  Guardian签名中... (使用真实secp256k1签名)
+  VAA就绪 ✓
+
+步骤4: 模拟Relayer提交到Ethereum
+  目标地址: 0xabcdef0000000000...
+  目标金额: 1000 USDC
+  (实际部署中由Ethereum合约解锁代币)
+
+========================================
+E2E测试完成 ✓
+========================================
+
+      ✔ E2E-SOL-001: SPL代币跨链到Ethereum (414ms)
+
+========================================
+验证: Ethereum解锁流程
+========================================
+
+在真实部署中:
+  1. Relayer监听Solana交易
+  2. Guardian网络签名VAA
+  3. Relayer提交VAA到Ethereum
+  4. Ethereum合约验证VAA签名
+  5. Ethereum合约从Vault解锁USDC给接收者
+
+本测试验证:
+  ✓ Solana代币已锁定到custody
+  ✓ 跨链消息已发送
+  ✓ VAA格式正确
+
+========================================
+验证完成 ✓
+========================================
+
+      ✔ E2E-SOL-002: Ethereum解锁原生ERC20
+    4.2 Ethereum → Solana
+
+========================================
+E2E测试: Ethereum → Solana
+========================================
+
+步骤1: 模拟Ethereum锁定ERC20
+  用户在Ethereum锁定1000 USDC
+  目标链: Solana
+  接收者: Bob
+
+步骤2: 模拟Guardian签名VAA
+  VAA大小: 1072 bytes
+  签名数量: 13/19 ✓
+
+步骤3: Relayer提交VAA到Solana
+      2) E2E-SOL-003: ERC20跨链到Solana
+
+========================================
+验证: Wrapped Token铸造
+========================================
+
+当前实现:
+  ✓ 使用Lock/Unlock模式
+  ✓ 代币预先锁定在custody
+  ✓ 接收时从custody解锁
+
+未来支持Mint/Burn模式:
+  - 首次跨链时创建wrapped版本
+  - 接收时铸造wrapped代币
+  - 返回时销毁wrapped代币
+
+当前custody余额: 5000 USDC
+      3) E2E-SOL-004: Solana铸造wrappedToken
+    4.3 Guardian升级跨链测试
+
+========================================
+E2E测试: Guardian Set升级
+========================================
+
+步骤1: 准备新Guardian Set
+  当前Guardian Set索引: 0
+  新Guardian Set索引: 1
+  Guardian数量: 19
+
+步骤2: 旧Guardian Set签名升级VAA
+  升级VAA大小: 1301 bytes
+  签名数量: 13/19 ✓
+
+步骤3: 执行Guardian Set升级
+      4) E2E-SOL-005: Solana Guardian升级原子性
+    4.4 完整跨链流程测试
+
+========================================
+E2E测试: 完整往返流程
+========================================
+
+第一段: Solana → Ethereum
+  Alice初始余额: 5000 USDC
+  Alice转账后余额: 4000 USDC
+  锁定成功 ✓
+
+模拟Ethereum处理...
+  (实际部署中在Ethereum解锁USDC)
+
+第二段: Ethereum → Solana
+      5) E2E-SOL-006: 完整往返测试 (Solana→Ethereum→Solana)
+
+========================================
+E2E测试: 多用户并发跨链
+========================================
+      6) E2E-SOL-007: 多用户并发跨链测试
+
+========================================
+E2E测试: 大额转账压力测试
+========================================
+      7) E2E-SOL-008: 压力测试 - 大额转账
+
+  程序集成测试
+    3.1 跨程序调用测试
+      8) "before all" hook for "INT-SOL-001: transfer_tokens → post_message"
+    3.2 Guardian Set升级测试
+      9) INT-SOL-004: 升级后旧Set仍可验证
+      10) INT-SOL-005: 升级后新Set可验证
+      11) INT-SOL-006: 过期后旧Set拒绝
+
+  solana-core 单元测试
+    2.1.1 initialize指令测试
+  Bridge已存在，跳过初始化（测试套件共享）
+      ✔ UNIT-SC-001: 正常初始化Bridge
+      ✔ UNIT-SC-002: 初始化Guardian Set
+      ✔ UNIT-SC-003: 设置初始message_fee
+      ✔ UNIT-SC-004: 重复初始化失败
+    2.1.2 post_message指令测试
+      12) UNIT-SC-005: 正常发送消息
+      13) UNIT-SC-006: 序列号递增
+      ✔ UNIT-SC-007: 手续费不足 (402ms)
+      ✔ UNIT-SC-008: payload大小限制
+      14) UNIT-SC-009: Bridge暂停时拒绝
+    2.1.3 post_vaa指令测试
+      15) UNIT-SC-010: 正常接收VAA
+      16) UNIT-SC-011: VAA签名验证成功
+      17) UNIT-SC-012: 签名数量不足(<13)
+      18) UNIT-SC-013: 无效签名
+      19) UNIT-SC-014: Guardian Set过期
+      20) UNIT-SC-015: VAA重复消费
+      ✔ UNIT-SC-016: 无效的VAA格式 (811ms)
+    2.1.4 update_guardian_set指令测试
+      21) UNIT-SC-017: 正常升级Guardian Set
+      22) UNIT-SC-018: 新旧Set并存(过渡期)
+旧Guardian Set尚未过期，跳过此测试
+      ✔ UNIT-SC-019: 旧Set过期后拒绝
+      ✔ UNIT-SC-020: 非治理VAA拒绝 (1212ms)
+
+  token-bridge 单元测试
+    2.2.1 transfer_tokens指令测试
+      ✔ UNIT-TB-001: 正常锁定SPL代币(1:1兑换) (1229ms)
+      ✔ UNIT-TB-002: 跨链兑换不同代币(USDC→USDT) (1214ms)
+      ✔ UNIT-TB-003: TokenBinding不存在失败 (1234ms)
+      ✔ UNIT-TB-004: TokenBinding未启用失败 (817ms)
+      ✔ UNIT-TB-005: 授权不足 (403ms)
+      ✔ UNIT-TB-006: 余额不足 (818ms)
+      ✔ UNIT-TB-007: 手续费不足 (401ms)
+      ✔ UNIT-TB-008: 无效目标链
+    2.2.2 complete_transfer指令测试
+      23) UNIT-TB-009: 解锁原生SPL代币(1:1兑换)
+      24) UNIT-TB-010: 跨链兑换不同代币接收
+      25) UNIT-TB-025: 兑换比率验证失败
+      26) UNIT-TB-026: 目标代币不匹配
+      27) UNIT-TB-027: VAA验证失败
+      28) UNIT-TB-028: 目标链不匹配
+      29) UNIT-TB-029: custody余额不足
+    2.2.3 register_token_binding指令测试
+      ✔ UNIT-TB-011: 正常注册单向代币绑定 (812ms)
+      ✔ UNIT-TB-012: 重复注册失败 (820ms)
+      ✔ UNIT-TB-013: 非管理员调用失败 (816ms)
+      ✔ UNIT-TB-014: 注册不同代币兑换对(多对多) (1623ms)
+      ✔ UNIT-TB-030: 注册出站和入站binding(双向) (1218ms)
+    2.2.4 register_bidirectional_binding指令测试
+      ✔ UNIT-TB-031: 双向注册同币种(1:1) (815ms)
+      ✔ UNIT-TB-032: 双向注册不同币种 (816ms)
+      ✔ UNIT-TB-033: 双向不对称兑换比率 (817ms)
+      ✔ UNIT-TB-034: 验证自动创建两个binding (814ms)
+      ✔ UNIT-TB-035: 非管理员调用失败 (819ms)
+    2.2.5 set_exchange_rate指令测试
+      ✔ UNIT-TB-015: 设置1:1兑换比率 (1216ms)
+      ✔ UNIT-TB-016: 设置自定义兑换比率 (1222ms)
+      ✔ UNIT-TB-017: 分母为0失败 (822ms)
+      ✔ UNIT-TB-018: TokenBinding不存在失败 (408ms)
+      ✔ UNIT-TB-019: 非管理员调用失败 (1221ms)
+    2.2.6 update_amm_config指令测试
+      ✔ UNIT-TB-020: 启用外部AMM定价 (1216ms)
+      ✔ UNIT-TB-021: 禁用外部AMM定价 (1222ms)
+      ✔ UNIT-TB-022: 非管理员调用失败 (1228ms)
+
+
+  41 passing (1m)
+  29 failing
+
+  1) 密码学实现演示
+       演示3: 完整VAA构造:
+     TypeError: Cannot read properties of undefined (reading 'copy')
+      at serializeTokenTransferPayload (tests/utils/vaa.ts:133:23)
+      at createTokenTransferVAA (tests/utils/vaa.ts:449:19)
+      at Context.<anonymous> (tests/demo-crypto.test.ts:98:39)
+      at processImmediate (node:internal/timers:505:21)
+
+  2) 跨链E2E测试
+       4.2 Ethereum → Solana
+         E2E-SOL-003: ERC20跨链到Solana:
+     Error: Signature verification failed.
+Missing signature for public key [`EXQtUToSaUs6dzQsiA9f7NaXgufbvf8so85Ti2VFyzvk`].
+      at Transaction.serialize (node_modules/@solana/web3.js/src/transaction/legacy.ts:828:15)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:164:22)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  3) 跨链E2E测试
+       4.2 Ethereum → Solana
+         E2E-SOL-004: Solana铸造wrappedToken:
+     AssertionError: expected 5000000000 to be a number or a date
+      at /workspace/newlife/contracts/svm/bridge-programs/tests/e2e/cross-chain.test.ts:541:36
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/e2e/cross-chain.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  4) 跨链E2E测试
+       4.3 Guardian升级跨链测试
+         E2E-SOL-005: Solana Guardian升级原子性:
+     Error: Signature verification failed.
+Missing signature for public key(s) [`4JXxwrSvLfrZccX44KDvguhzMmWALq4KmWEbaMQ9WL11`, `ywSj8KSWAXavP8bCgjCgaLGWt4UBTF4bLBSksTzFJ3B`].
+      at Transaction.serialize (node_modules/@solana/web3.js/src/transaction/legacy.ts:828:15)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:164:22)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  5) 跨链E2E测试
+       4.4 完整跨链流程测试
+         E2E-SOL-006: 完整往返测试 (Solana→Ethereum→Solana):
+     Error: Signature verification failed.
+Missing signature for public key [`7DD1tkN7NnoxbFs82ckdcJqYPDH4LxHTQapWeWvXv6r2`].
+      at Transaction.serialize (node_modules/@solana/web3.js/src/transaction/legacy.ts:828:15)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:164:22)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  6) 跨链E2E测试
+       4.4 完整跨链流程测试
+         E2E-SOL-007: 多用户并发跨链测试:
+     Error: Account `bridgeConfig` not provided.
+      at /workspace/newlife/contracts/svm/bridge-programs/node_modules/@coral-xyz/anchor/src/program/common.ts:51:15
+      at Array.forEach (<anonymous>)
+      at validateAccounts (node_modules/@coral-xyz/anchor/src/program/common.ts:46:14)
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:44:23)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  7) 跨链E2E测试
+       4.4 完整跨链流程测试
+         E2E-SOL-008: 压力测试 - 大额转账:
+     Error: Account `bridgeConfig` not provided.
+      at /workspace/newlife/contracts/svm/bridge-programs/node_modules/@coral-xyz/anchor/src/program/common.ts:51:15
+      at Array.forEach (<anonymous>)
+      at validateAccounts (node_modules/@coral-xyz/anchor/src/program/common.ts:46:14)
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:44:23)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  8) 程序集成测试
+       3.1 跨程序调用测试
+         "before all" hook for "INT-SOL-001: transfer_tokens → post_message":
+     Error: Account `bridgeConfig` not provided.
+      at /workspace/newlife/contracts/svm/bridge-programs/node_modules/@coral-xyz/anchor/src/program/common.ts:51:15
+      at Array.forEach (<anonymous>)
+      at validateAccounts (node_modules/@coral-xyz/anchor/src/program/common.ts:46:14)
+      at ix (node_modules/@coral-xyz/anchor/src/program/namespace/instruction.ts:44:23)
+      at txFn (node_modules/@coral-xyz/anchor/src/program/namespace/transaction.ts:24:14)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:21:18)
+      at MethodsBuilder.rpc (node_modules/@coral-xyz/anchor/src/program/namespace/methods.ts:434:17)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  9) 程序集成测试
+       3.2 Guardian Set升级测试
+         INT-SOL-004: 升级后旧Set仍可验证:
+     Error: Signature verification failed.
+Missing signature for public key(s) [`4V6YGHkzTq7eMkxkeWDQigAzBM7js6mnQrMt5Ypaa2fv`, `ywSj8KSWAXavP8bCgjCgaLGWt4UBTF4bLBSksTzFJ3B`].
+      at Transaction.serialize (node_modules/@solana/web3.js/src/transaction/legacy.ts:828:15)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:164:22)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  10) 程序集成测试
+       3.2 Guardian Set升级测试
+         INT-SOL-005: 升级后新Set可验证:
+     TypeError: Cannot read properties of undefined (reading 'copy')
+      at serializeTokenTransferPayload (tests/utils/vaa.ts:133:23)
+      at createTokenTransferVAA (tests/utils/vaa.ts:449:19)
+      at /workspace/newlife/contracts/svm/bridge-programs/tests/integration/integration.test.ts:628:47
+      at Generator.next (<anonymous>)
+      at /workspace/newlife/contracts/svm/bridge-programs/tests/integration/integration.test.ts:41:71
+      at new Promise (<anonymous>)
+      at __awaiter (tests/integration/integration.test.ts:37:12)
+      at Context.<anonymous> (tests/integration/integration.test.ts:617:46)
+      at processImmediate (node:internal/timers:505:21)
+
+  11) 程序集成测试
+       3.2 Guardian Set升级测试
+         INT-SOL-006: 过期后旧Set拒绝:
+
+      AssertionError: expected +0 to be above +0
+      + expected - actual
+
+
+      at /workspace/newlife/contracts/svm/bridge-programs/tests/integration/integration.test.ts:685:51
+      at Generator.next (<anonymous>)
+      at fulfilled (tests/integration/integration.test.ts:38:58)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  12) solana-core 单元测试
+       2.1.2 post_message指令测试
+         UNIT-SC-005: 正常发送消息:
+     Error: unknown signer: D5RbJ7ZEHEmC69eHQoDR18u3hgBCVm1KGMoTASmptV56
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  13) solana-core 单元测试
+       2.1.2 post_message指令测试
+         UNIT-SC-006: 序列号递增:
+     Error: unknown signer: D5RbJ7ZEHEmC69eHQoDR18u3hgBCVm1KGMoTASmptV56
+      at Transaction._addSignature (node_modules/@solana/web3.js/src/transaction/legacy.ts:754:13)
+      at forEach (node_modules/@solana/web3.js/src/transaction/legacy.ts:727:12)
+      at Array.forEach (<anonymous>)
+      at Transaction._partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:725:13)
+      at Transaction.partialSign (node_modules/@solana/web3.js/src/transaction/legacy.ts:717:10)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:159:14)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  14) solana-core 单元测试
+       2.1.2 post_message指令测试
+         UNIT-SC-009: Bridge暂停时拒绝:
+     AssertionError: expected 'unknown signer: D5RbJ7ZEHEmC69eHQoDR1…' to include 'paused'
+      at /workspace/newlife/contracts/svm/bridge-programs/tests/unit/solana-core.test.ts:270:34
+      at Generator.throw (<anonymous>)
+      at rejected (tests/unit/solana-core.test.ts:39:65)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  15) solana-core 单元测试
+       2.1.3 post_vaa指令测试
+         UNIT-SC-010: 正常接收VAA:
+     Error: Signature verification failed.
+Missing signature for public key [`7NL4uiykYfeecrm9KCGXcT163wqLPP4sbHoK7tN4VSpH`].
+      at Transaction.serialize (node_modules/@solana/web3.js/src/transaction/legacy.ts:828:15)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:164:22)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  16) solana-core 单元测试
+       2.1.3 post_vaa指令测试
+         UNIT-SC-011: VAA签名验证成功:
+     Error: Signature verification failed.
+Missing signature for public key [`DKvV3nfUnhbDU7brsWfgEBHSxmTFBipY4hqgvMtiBRYM`].
+      at Transaction.serialize (node_modules/@solana/web3.js/src/transaction/legacy.ts:828:15)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:164:22)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  17) solana-core 单元测试
+       2.1.3 post_vaa指令测试
+         UNIT-SC-012: 签名数量不足(<13):
+     AssertionError: expected 'Signature verification failed.\nMissi…' to include 'Insufficient signatures'
+      at /workspace/newlife/contracts/svm/bridge-programs/tests/unit/solana-core.test.ts:410:34
+      at Generator.throw (<anonymous>)
+      at rejected (tests/unit/solana-core.test.ts:39:65)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  18) solana-core 单元测试
+       2.1.3 post_vaa指令测试
+         UNIT-SC-013: 无效签名:
+     AssertionError: expected 'Signature verification failed.\nMissi…' to include 'Invalid signature'
+      at /workspace/newlife/contracts/svm/bridge-programs/tests/unit/solana-core.test.ts:455:34
+      at Generator.throw (<anonymous>)
+      at rejected (tests/unit/solana-core.test.ts:39:65)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  19) solana-core 单元测试
+       2.1.3 post_vaa指令测试
+         UNIT-SC-014: Guardian Set过期:
+     Error: Signature verification failed.
+Missing signature for public key(s) [`F4mxx3JCN68Wn1Q3y8PtBGEkHwEFNg6xsUhbVrsiWEbs`, `ywSj8KSWAXavP8bCgjCgaLGWt4UBTF4bLBSksTzFJ3B`].
+      at Transaction.serialize (node_modules/@solana/web3.js/src/transaction/legacy.ts:828:15)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:164:22)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  20) solana-core 单元测试
+       2.1.3 post_vaa指令测试
+         UNIT-SC-015: VAA重复消费:
+     Error: Signature verification failed.
+Missing signature for public key [`ANuSq1SXjpFpAsYyqJYbULUFksSYnHqh4m1rxcsi8ffH`].
+      at Transaction.serialize (node_modules/@solana/web3.js/src/transaction/legacy.ts:828:15)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:164:22)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  21) solana-core 单元测试
+       2.1.4 update_guardian_set指令测试
+         UNIT-SC-017: 正常升级Guardian Set:
+     Error: Signature verification failed.
+Missing signature for public key(s) [`3j8189pLbS7nqpQeCgUG6KGHVRMG3kGhpFFK9qi2ffxc`, `HwCQDTkvQzjqddy3iZ2FL7bvkeVmC9eHYRkDieRGyMCB`].
+      at Transaction.serialize (node_modules/@solana/web3.js/src/transaction/legacy.ts:828:15)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:164:22)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  22) solana-core 单元测试
+       2.1.4 update_guardian_set指令测试
+         UNIT-SC-018: 新旧Set并存(过渡期):
+     Error: Account does not exist or has no data ywSj8KSWAXavP8bCgjCgaLGWt4UBTF4bLBSksTzFJ3B
+      at AccountClient.fetch (node_modules/@coral-xyz/anchor/src/program/namespace/account.ts:168:13)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+  23) token-bridge 单元测试
+       2.2.2 complete_transfer指令测试
+         UNIT-TB-009: 解锁原生SPL代币(1:1兑换):
+     Error: Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Provided owner is not allowed. 
+Logs: 
+[
+  "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL invoke [1]",
+  "Program log: Create",
+  "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL consumed 5028 of 200000 compute units",
+  "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL failed: Provided owner is not allowed"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+      at Connection.sendEncodedTransaction (node_modules/@solana/web3.js/src/connection.ts:6053:13)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at Connection.sendRawTransaction (node_modules/@solana/web3.js/src/connection.ts:6009:20)
+      at Connection.sendTransaction (node_modules/@solana/web3.js/src/connection.ts:5997:12)
+      at sendAndConfirmTransaction (node_modules/@solana/web3.js/src/utils/send-and-confirm-transaction.ts:36:21)
+
+  24) token-bridge 单元测试
+       2.2.2 complete_transfer指令测试
+         UNIT-TB-010: 跨链兑换不同代币接收:
+     Error: Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Provided owner is not allowed. 
+Logs: 
+[
+  "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL invoke [1]",
+  "Program log: Create",
+  "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL consumed 5028 of 200000 compute units",
+  "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL failed: Provided owner is not allowed"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+      at Connection.sendEncodedTransaction (node_modules/@solana/web3.js/src/connection.ts:6053:13)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at Connection.sendRawTransaction (node_modules/@solana/web3.js/src/connection.ts:6009:20)
+      at Connection.sendTransaction (node_modules/@solana/web3.js/src/connection.ts:5997:12)
+      at sendAndConfirmTransaction (node_modules/@solana/web3.js/src/utils/send-and-confirm-transaction.ts:36:21)
+
+  25) token-bridge 单元测试
+       2.2.2 complete_transfer指令测试
+         UNIT-TB-025: 兑换比率验证失败:
+     Error: Signature verification failed.
+Missing signature for public key [`GTxbge8NHfrt5YM8C5xzeazXk12pzo2NC7TESweihDyP`].
+      at Transaction.serialize (node_modules/@solana/web3.js/src/transaction/legacy.ts:828:15)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:164:22)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  26) token-bridge 单元测试
+       2.2.2 complete_transfer指令测试
+         UNIT-TB-026: 目标代币不匹配:
+     Error: Signature verification failed.
+Missing signature for public key [`GFEVDaFjXVF8vNy4smiqhR6wPdGgTr3oosCAzn4XWKLD`].
+      at Transaction.serialize (node_modules/@solana/web3.js/src/transaction/legacy.ts:828:15)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:164:22)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  27) token-bridge 单元测试
+       2.2.2 complete_transfer指令测试
+         UNIT-TB-027: VAA验证失败:
+     Error: Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Provided owner is not allowed. 
+Logs: 
+[
+  "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL invoke [1]",
+  "Program log: Create",
+  "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL consumed 5028 of 200000 compute units",
+  "Program ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL failed: Provided owner is not allowed"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+      at Connection.sendEncodedTransaction (node_modules/@solana/web3.js/src/connection.ts:6053:13)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at Connection.sendRawTransaction (node_modules/@solana/web3.js/src/connection.ts:6009:20)
+      at Connection.sendTransaction (node_modules/@solana/web3.js/src/connection.ts:5997:12)
+      at sendAndConfirmTransaction (node_modules/@solana/web3.js/src/utils/send-and-confirm-transaction.ts:36:21)
+
+  28) token-bridge 单元测试
+       2.2.2 complete_transfer指令测试
+         UNIT-TB-028: 目标链不匹配:
+     Error: Signature verification failed.
+Missing signature for public key [`CHkW2nbivXZaP3Tk1pCGkTxnJBQS23m5F5WtN2KLoJYF`].
+      at Transaction.serialize (node_modules/@solana/web3.js/src/transaction/legacy.ts:828:15)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:164:22)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+  29) token-bridge 单元测试
+       2.2.2 complete_transfer指令测试
+         UNIT-TB-029: custody余额不足:
+     Error: Signature verification failed.
+Missing signature for public key [`BNs3neZQAatxxavKNiyYrtxnTHUxUQiwZaJggaK3dtdT`].
+      at Transaction.serialize (node_modules/@solana/web3.js/src/transaction/legacy.ts:828:15)
+      at AnchorProvider.sendAndConfirm (node_modules/@coral-xyz/anchor/src/provider.ts:164:22)
+      at processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at MethodsBuilder.rpc [as _rpcFn] (node_modules/@coral-xyz/anchor/src/program/namespace/rpc.ts:29:16)
+
+
+
+error Command failed with exit code 29.
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.

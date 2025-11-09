@@ -167,28 +167,98 @@ msg!(
 
 ---
 
-#### 2.1.2 post_vaa
+#### 2.1.1.1 init_vaa_buffer
 
-**功能**: 接收并验证来自EVM链的VAA
+**功能**: 初始化VAA数据缓冲区（用于接收大型VAA）
 
 **接口**:
 ```rust
-pub fn post_vaa(
-    ctx: Context<PostVAA>,
-    vaa: Vec<u8>,
+pub fn init_vaa_buffer(
+    ctx: Context<InitVaaBuffer>,
+    vaa_size: u32,
 ) -> Result<()>
 ```
 
 **参数**:
-- `vaa`: 经过Guardian签名的VAA字节数组
+- `vaa_size`: VAA总大小（字节）
 
-**验证步骤**:
-1. 解析VAA结构（header + signatures + body）
-2. 验证Guardian签名（使用Ed25519或secp256k1指令）
-3. 检查签名数量 ≥ 门限（13/19）
-4. 检查Guardian Set索引有效
-5. 检查VAA未被消费
-6. 存储到PostedVAA账户
+**用途**: 为大型VAA分配存储空间
+
+---
+
+#### 2.1.1.2 append_vaa_chunk
+
+**功能**: 追加VAA数据块
+
+**接口**:
+```rust
+pub fn append_vaa_chunk(
+    ctx: Context<AppendVaaChunk>,
+    chunk: Vec<u8>,
+    offset: u32,
+) -> Result<()>
+```
+
+**参数**:
+- `chunk`: VAA数据块（建议≤900字节）
+- `offset`: 写入偏移量
+
+**限制**: 每个chunk建议≤900字节，确保交易不超过1232字节限制
+
+---
+
+#### 2.1.2 post_vaa (多步骤VAA传递)
+
+**功能**: 接收并验证来自EVM链的VAA（支持大VAA传递）
+
+**设计背景**:
+由于Anchor框架对`Vec<u8>`参数的序列化限制（约1KB），大型VAA（如包含13个签名的VAA约1072字节）无法直接作为参数传递。采用**三步骤机制**解决：
+
+**步骤1: 初始化VAA缓冲区**
+```rust
+pub fn init_vaa_buffer(
+    ctx: Context<InitVaaBuffer>,
+    vaa_size: u32,
+) -> Result<()>
+```
+
+**步骤2: 追加VAA数据块**
+```rust
+pub fn append_vaa_chunk(
+    ctx: Context<AppendVaaChunk>,
+    chunk: Vec<u8>,
+    offset: u32,
+) -> Result<()>
+```
+
+**步骤3: 验证并发布VAA**
+```rust
+pub fn post_vaa(
+    ctx: Context<PostVAA>,
+) -> Result<()>
+```
+
+**完整流程**:
+```rust
+// 1. 初始化VAA缓冲区（假设VAA大小1072字节）
+init_vaa_buffer(vaa_size: 1072)
+
+// 2. 分块追加数据（每块最多900字节）
+append_vaa_chunk(chunk: vaa[0..900], offset: 0)
+append_vaa_chunk(chunk: vaa[900..1072], offset: 900)
+
+// 3. 验证并发布VAA
+post_vaa()  // 从VaaBuffer账户读取完整VAA并验证
+```
+
+**验证步骤**（在post_vaa中）:
+1. 从VaaBuffer账户读取完整VAA
+2. 解析VAA结构（header + signatures + body）
+3. 验证Guardian签名（使用secp256k1恢复）
+4. 检查签名数量 ≥ 门限（13/19）
+5. 检查Guardian Set索引有效
+6. 检查VAA未被消费
+7. 存储到PostedVAA账户
 
 **账户结构**:
 ```rust
@@ -222,7 +292,7 @@ if ctx.accounts.posted_vaa.consumed {
 
 ---
 
-#### 2.1.3 update_guardian_set
+#### 2.1.3 update_guardian_set (多步骤VAA传递)
 
 **功能**: 升级Guardian Set（管理员接口）
 
@@ -230,9 +300,15 @@ if ctx.accounts.posted_vaa.consumed {
 ```rust
 pub fn update_guardian_set(
     ctx: Context<UpdateGuardianSet>,
-    vaa: Vec<u8>,
 ) -> Result<()>
 ```
+
+**说明**: 
+- GuardianSet升级VAA通常较大（约1301字节，包含19个Guardian地址）
+- 使用与post_vaa相同的三步骤机制：
+  1. `init_vaa_buffer(1301)` - 初始化缓冲区
+  2. `append_vaa_chunk(chunk1, 0)` + `append_vaa_chunk(chunk2, 900)` - 分块追加
+  3. `update_guardian_set()` - 从VaaBuffer读取并验证
 
 **权限**: 只能通过治理VAA调用
 
@@ -1039,19 +1115,15 @@ let payload = TokenTransferPayload {
 }.try_to_vec()?;
 ```
 
-**向后兼容性**:
-> **注意**: 旧版本payload（77字节）仍可兼容，缺失字段按1:1兑换同代币处理。
-
+**Payload长度验证**:
 ```rust
-// 检测payload版本
-if payload.len() == 77 {
-    // 旧版本：自动填充
-    target_token = token_address;
-    target_amount = amount;
-    exchange_rate_num = 1;
-    exchange_rate_denom = 1;
-} else if payload.len() == 133 {
-    // 新版本：包含兑换信息
+// 验证payload长度
+pub fn validate_payload(payload: &[u8]) -> Result<()> {
+    require!(
+        payload.len() == 133,
+        TokenBridgeError::InvalidPayloadLength
+    );
+    Ok(())
 }
 ```
 
@@ -1078,7 +1150,69 @@ let (sequence_pda, _) = Pubkey::find_program_address(
 
 ---
 
-### 3.4 TokenBinding账户
+### 3.4 VaaBuffer账户（新增 - 用于大VAA传递）
+
+**功能**: 临时存储VAA数据，支持分块写入
+
+```rust
+#[account]
+pub struct VaaBuffer {
+    /// VAA总大小
+    pub total_size: u32,
+    
+    /// 当前已写入字节数
+    pub written_size: u32,
+    
+    /// VAA数据（动态大小，最大2048字节）
+    pub data: Vec<u8>,
+    
+    /// 是否已完成写入
+    pub finalized: bool,
+}
+
+impl VaaBuffer {
+    pub const MAX_SIZE: usize = 4 + 4 + (4 + 2048) + 1;
+}
+```
+
+**PDA推导**:
+```rust
+// 使用随机nonce避免冲突
+let (vaa_buffer_pda, _) = Pubkey::find_program_address(
+    &[
+        b"VaaBuffer",
+        payer.key().as_ref(),
+        &nonce.to_le_bytes(),
+    ],
+    program_id
+);
+```
+
+**使用流程**:
+```typescript
+// 1. 初始化缓冲区
+await program.methods.initVaaBuffer(1072)
+    .accounts({ vaaBuffer, payer })
+    .rpc();
+
+// 2. 分块写入VAA（每块≤900字节）
+await program.methods.appendVaaChunk(vaa.slice(0, 900), 0)
+    .accounts({ vaaBuffer, payer })
+    .rpc();
+    
+await program.methods.appendVaaChunk(vaa.slice(900, 1072), 900)
+    .accounts({ vaaBuffer, payer })
+    .rpc();
+
+// 3. 验证并发布VAA
+await program.methods.postVaa()
+    .accounts({ vaaBuffer, guardianSet, postedVaa })
+    .rpc();
+```
+
+---
+
+### 3.5 TokenBinding账户
 
 **功能**: 存储代币跨链映射关系和兑换配置
 
@@ -1310,10 +1444,6 @@ pub enum TokenBridgeError {
     
     #[msg("Slippage exceeded")]
     SlippageExceeded,
-    
-    // 旧设计相关错误（已弃用）
-    #[msg("[Deprecated] Wrapped token already exists")]
-    WrappedTokenExists,
 }
 ```
 

@@ -11,7 +11,6 @@ pub enum TokenBridgeError {
     #[msg("Invalid payload")]
     InvalidPayload,
     
-    // 代币绑定相关错误
     #[msg("Token binding not found")]
     TokenBindingNotFound,
     
@@ -41,12 +40,11 @@ pub enum TokenBridgeError {
     
     #[msg("Slippage exceeded")]
     SlippageExceeded,
-    
+
+    #[msg("VAA already consumed")]
+    VAAAlreadyConsumed,
+
     #[msg("Invalid target chain")]
     InvalidTargetChain,
-    
-    // 旧设计相关错误（已弃用）
-    #[msg("[Deprecated] Wrapped token already exists")]
-    WrappedTokenExists,
 }
 
