@@ -191,6 +191,26 @@ export type SolanaCore = {
       ]
     },
     {
+      "name": "markVaaConsumed",
+      "discriminator": [
+        231,
+        57,
+        78,
+        148,
+        218,
+        164,
+        108,
+        103
+      ],
+      "accounts": [
+        {
+          "name": "postedVaa",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "postMessage",
       "discriminator": [
         214,

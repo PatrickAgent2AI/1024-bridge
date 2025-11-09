@@ -162,7 +162,13 @@ pub mod token_bridge {
             transfer_amount,
         )?;
 
-        posted_vaa.consumed = true;
+        // Mark VAA as consumed via CPI to solana-core
+        let cpi_program = ctx.accounts.core_program.to_account_info();
+        let cpi_accounts = solana_core::cpi::accounts::MarkVaaConsumed {
+            posted_vaa: ctx.accounts.posted_vaa.to_account_info(),
+        };
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+        solana_core::cpi::mark_vaa_consumed(cpi_ctx)?;
 
         Ok(())
     }
@@ -374,6 +380,10 @@ pub struct TransferTokens<'info> {
 
 #[derive(Accounts)]
 pub struct CompleteTransfer<'info> {
+    /// CHECK: solana-core program
+    #[account(executable, address = solana_core::ID)]
+    pub core_program: AccountInfo<'info>,
+
     /// CHECK: Bridge account from solana-core program
     pub bridge: AccountInfo<'info>,
 

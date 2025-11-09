@@ -27,6 +27,10 @@ export type TokenBridge = {
       ],
       "accounts": [
         {
+          "name": "coreProgram",
+          "address": "worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth"
+        },
+        {
           "name": "bridge"
         },
         {

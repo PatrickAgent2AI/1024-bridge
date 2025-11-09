@@ -14,6 +14,7 @@ import {
   createAccount,
   mintTo,
   getAccount,
+  getOrCreateAssociatedTokenAccount,
 } from "@solana/spl-token";
 import {
   setupTestEnvironment,
@@ -317,15 +318,17 @@ describe("程序集成测试", () => {
         TOKEN_PROGRAM_ID
       );
 
-      const recipientAccount = await createAccount(
+      const recipientAccountInfo = await getOrCreateAssociatedTokenAccount(
         connection,
         payer,
         solUsdcMint,
         user.publicKey,
+        false,
         undefined,
         undefined,
         TOKEN_PROGRAM_ID
       );
+      const recipientAccount = recipientAccountInfo.address;
 
       const payload: TokenTransferPayload = {
         payloadType: 1,
@@ -392,9 +395,12 @@ describe("程序集成测试", () => {
       const postedVaa = await coreProgram.account.postedVaa.fetch(postedVaaPda);
       expect(postedVaa.consumed).to.be.false;
 
+      const recipientBalanceBefore = await getTokenBalance(connection, recipientAccount);
+
       await tokenProgram.methods
         .completeTransfer()
         .accounts({
+          coreProgram: coreProgram.programId,
           bridge: bridgePda,
           postedVaa: postedVaaPda,
           tokenBinding: inboundBindingPda,
@@ -406,7 +412,7 @@ describe("程序集成测试", () => {
         .rpc();
 
       const recipientBalance = await getTokenBalance(connection, recipientAccount);
-      expect(recipientBalance.toString()).to.equal("500000000");
+      expect(recipientBalance.toString()).to.equal((recipientBalanceBefore + BigInt(500_000_000)).toString());
 
       const postedVaaAfter = await coreProgram.account.postedVaa.fetch(
         postedVaaPda

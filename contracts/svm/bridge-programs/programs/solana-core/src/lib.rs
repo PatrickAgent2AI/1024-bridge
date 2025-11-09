@@ -264,6 +264,13 @@ pub mod solana_core {
         Ok(())
     }
 
+    pub fn mark_vaa_consumed(ctx: Context<MarkVaaConsumed>) -> Result<()> {
+        let posted_vaa = &mut ctx.accounts.posted_vaa;
+        require!(!posted_vaa.consumed, BridgeError::VAAAlreadyConsumed);
+        posted_vaa.consumed = true;
+        Ok(())
+    }
+
 }
 
 #[derive(Accounts)]
@@ -433,4 +440,10 @@ pub struct AppendVaaChunk<'info> {
     pub vaa_buffer: Account<'info, VaaBuffer>,
 
     pub payer: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct MarkVaaConsumed<'info> {
+    #[account(mut)]
+    pub posted_vaa: Account<'info, PostedVAA>,
 }

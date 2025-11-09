@@ -912,6 +912,7 @@ describe("token-bridge 单元测试", () => {
       await tokenProgram.methods
         .completeTransfer()
         .accounts({
+          coreProgram: coreProgram.programId,
           bridge: bridgePda,
           postedVaa: postedVaaPda,
           tokenBinding: inboundBindingPda,
@@ -1074,6 +1075,7 @@ describe("token-bridge 单元测试", () => {
       await tokenProgram.methods
         .completeTransfer()
         .accounts({
+          coreProgram: coreProgram.programId,
           bridge: bridgePda,
           postedVaa: postedVaaPda,
           tokenBinding: inboundBindingPda,
@@ -1452,7 +1454,7 @@ describe("token-bridge 单元测试", () => {
           .rpc();
         expect.fail("应该失败");
       } catch (error: any) {
-        expect(error.message).to.include("chain mismatch");
+        expect(error.message).to.include("Invalid target chain");
       }
     });
 
@@ -1598,15 +1600,16 @@ describe("token-bridge 单元测试", () => {
       try {
         await tokenProgram.methods
           .completeTransfer()
-          .accounts({
-            bridge: bridgePda,
-            postedVaa: postedVaaPda,
-            tokenBinding: inboundBindingPda,
-            recipientAccount: recipientAccount,
-            custodyAccount: emptyCustodyPda,
-            targetTokenMint: emptyMint,
-            tokenProgram: TOKEN_PROGRAM_ID,
-          })
+        .accounts({
+          coreProgram: coreProgram.programId,
+          bridge: bridgePda,
+          postedVaa: postedVaaPda,
+          tokenBinding: inboundBindingPda,
+          recipientAccount: recipientAccount,
+          custodyAccount: emptyCustodyPda,
+          targetTokenMint: emptyMint,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
           .rpc();
         expect.fail("应该失败");
       } catch (error: any) {

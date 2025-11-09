@@ -509,6 +509,7 @@ describe("跨链E2E测试", () => {
       await tokenProgram.methods
         .completeTransfer()
         .accounts({
+          coreProgram: coreProgram.programId,
           bridge: bridgePda,
           postedVaa: postedVaaPda,
           tokenBinding: inboundBindingPda,
@@ -934,18 +935,23 @@ describe("跨链E2E测试", () => {
 
       const vaaAccount = await createVaaDataAccount(connection, payer, vaaBuffer);
 
-      const bodyHash = Buffer.from(
-        keccak256(vaaBuffer.slice(6 + 13 * 66)),
-        "hex"
-      );
-      const vaaHash = Buffer.from(keccak256(bodyHash), "hex");
-
+      const { emitterChain, emitterAddress: vaaEmitterAddr, sequence } = extractVAAEmitterInfo(vaaBuffer);
+      
+      const sequenceBuffer = Buffer.alloc(8);
+      sequenceBuffer.writeBigUInt64LE(sequence);
+      
+      const emitterChainBuffer = Buffer.alloc(2);
+      emitterChainBuffer.writeUInt16LE(emitterChain);
+      
       const [postedVaaPda] = findProgramAddress(
-        [Buffer.from("PostedVAA"), vaaHash],
+        [
+          Buffer.from("PostedVAA"),
+          emitterChainBuffer,
+          vaaEmitterAddr,
+          sequenceBuffer
+        ],
         coreProgram.programId
       );
-
-      const { emitterChain, emitterAddress: vaaEmitterAddr, sequence } = extractVAAEmitterInfo(vaaBuffer);
 
       await coreProgram.methods
         .postVaa(emitterChain, Array.from(vaaEmitterAddr), new BN(sequence.toString()))
@@ -966,6 +972,7 @@ describe("跨链E2E测试", () => {
       await tokenProgram.methods
         .completeTransfer()
         .accounts({
+          coreProgram: coreProgram.programId,
           bridge: bridgePda,
           postedVaa: postedVaaPda,
           tokenBinding: inboundBindingPda,
@@ -1065,10 +1072,12 @@ describe("跨链E2E测试", () => {
           SOL_CHAIN_ID,
           Array.from(solUsdcMint.toBuffer()),
           ETH_CHAIN_ID,
+          Array.from(ethUsdcAddress),
           new BN(1),
           new BN(1)
         )
         .accounts({
+          bridgeConfig: bridgeConfigPda,
           tokenBinding: tokenBindingPda,
           authority: payer.publicKey,
         })
@@ -1198,10 +1207,12 @@ describe("跨链E2E测试", () => {
           SOL_CHAIN_ID,
           Array.from(solUsdcMint.toBuffer()),
           ETH_CHAIN_ID,
+          Array.from(ethUsdcAddress),
           new BN(1),
           new BN(1)
         )
         .accounts({
+          bridgeConfig: bridgeConfigPda,
           tokenBinding: tokenBindingPda,
           authority: payer.publicKey,
         })

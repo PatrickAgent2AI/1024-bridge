@@ -1,8 +1,10 @@
 # Solana 合约子模块 - API规格说明书
 
-> **文档版本**: v1.0  
+> **文档版本**: v1.1  
 > **创建日期**: 2025-11-08  
-> **子模块范围**: Solana程序接口规范
+> **最后更新**: 2025-11-09  
+> **子模块范围**: Solana程序接口规范  
+> **实现状态**: 核心功能已实现并通过测试，签名验证已完成
 
 ---
 
@@ -254,11 +256,27 @@ post_vaa()  // 从VaaBuffer账户读取完整VAA并验证
 **验证步骤**（在post_vaa中）:
 1. 从VaaBuffer账户读取完整VAA
 2. 解析VAA结构（header + signatures + body）
-3. 验证Guardian签名（使用secp256k1恢复）
+3. **验证Guardian签名**（✅ 已实现）:
+   ```rust
+   // 双重哈希
+   let body_hash = keccak256(body);
+   let double_hash = keccak256(body_hash);
+   
+   // 恢复公钥并验证每个签名
+   for sig in signatures {
+       let recovered_pubkey = secp256k1_recover(double_hash, sig);
+       let recovered_address = keccak256(pubkey)[12..32];
+       require!(recovered_address == guardian_set.guardians[sig.index]);
+   }
+   ```
 4. 检查签名数量 ≥ 门限（13/19）
 5. 检查Guardian Set索引有效
-6. 检查VAA未被消费
-7. 存储到PostedVAA账户
+6. 检查签名索引去重（防止重复签名）
+7. 存储到PostedVAA账户（consumed=false）
+
+**计算资源**:
+- 需要约1.4M计算单元（CU）用于13个签名验证
+- 测试中需添加：`ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })`
 
 **账户结构**:
 ```rust
@@ -1549,7 +1567,84 @@ pub fn initialize(
 
 ## 附录
 
-### A. 程序ID（示例）
+### A. 实现注意事项（2025-11-09）
+
+#### A.1 计算预算要求
+
+**VAA签名验证计算密集**：
+```typescript
+// 调用postVaa时必须增加计算预算
+await program.methods
+  .postVaa(emitterChain, emitterAddr, sequence)
+  .preInstructions([
+    ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })
+  ])
+  .rpc();
+```
+
+**原因**：
+- 13个secp256k1签名恢复需要约1.2M CU
+- 默认200K CU会导致"Computational budget exceeded"错误
+- 生产环境建议：1.4M ~ 2M CU
+
+#### A.2 跨程序账户修改限制
+
+**PostedVAA.consumed标记**：
+```rust
+// token-bridge中修改solana-core的账户
+posted_vaa.consumed = true;  // ⚠️ 可能不生效
+```
+
+**已知问题**：
+- PostedVAA所有者是solana-core程序
+- 跨程序修改需要特殊约束或CPI调用
+- 当前测试中此字段修改未生效
+
+**待实现方案**（之一）：
+```rust
+// 方案：在solana-core添加mark_consumed指令
+pub fn mark_vaa_consumed(ctx: Context<MarkConsumed>) -> Result<()> {
+    ctx.accounts.posted_vaa.consumed = true;
+    Ok(())
+}
+
+// token-bridge通过CPI调用
+solana_core::cpi::mark_vaa_consumed(cpi_ctx)?;
+```
+
+#### A.3 Guardian升级账户设计
+
+**UpdateGuardianSet账户**：
+```rust
+pub struct UpdateGuardianSet<'info> {
+    // new_guardian_set和upgrade_vaa使用Keypair（非PDA）
+    #[account(init, payer = payer, space = ...)]
+    pub new_guardian_set: Account<'info, GuardianSet>,
+    
+    #[account(init, payer = payer, space = ...)]
+    pub upgrade_vaa: Account<'info, PostedVAA>,
+}
+```
+
+**测试调用**：
+```typescript
+const newSetKeypair = Keypair.generate();
+const vaaKeypair = Keypair.generate();
+
+await program.methods
+  .updateGuardianSet()
+  .accounts({
+    newGuardianSet: newSetKeypair.publicKey,
+    upgradeVaa: vaaKeypair.publicKey,
+    ...
+  })
+  .signers([payer, newSetKeypair, vaaKeypair])
+  .rpc();
+```
+
+---
+
+### B. 程序ID（示例）
 
 ```
 solana-core:    worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth
@@ -1624,5 +1719,9 @@ Chain ID范围: 0xFFF0 - 0xFFFF (65520-65535)
 
 ---
 
-**文档状态**: ✅ v1.0 初版完成  
-**维护者**: Solana合约开发团队
+**文档状态**: ✅ v1.1 已更新（含实现状态）  
+**维护者**: Solana合约开发团队  
+**实现进度**: 
+- ✅ solana-core: 100%实现（含签名验证）
+- ✅ token-bridge: 100%实现（含兑换功能）
+- 🔄 待完善：Guardian升级、跨程序VAA consumed标记
