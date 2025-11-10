@@ -1,9 +1,10 @@
 # 跨链桥项目 - API规格说明书
 
-> **文档版本**: v2.1  
+> **文档版本**: v2.2  
 > **创建日期**: 2025-11-08  
-> **最后更新**: 2025-11-09  
+> **最后更新**: 2025-11-10  
 > **更新说明**: 
+> - v2.2: 文档修订 - 突出TokenBinding机制，减少wrappedUSDC强调
 > - v2.1: 添加TokenBinding机制，更新Payload格式（支持跨链代币兑换）
 > - v2.0: 聚焦宏观接口，添加模块间集成接口，移除原生代币支持
 
@@ -44,9 +45,9 @@
 
 | 资产类型 | 源链 | 目标链 | 模式 |
 |---------|------|--------|------|
-| **ERC20代币** | EVM | Solana | Lock/Unlock + Mint Wrapped |
-| **SPL代币** | Solana | EVM | Lock/Unlock + Mint Wrapped |
-| **测试用例** | wrappedUSDC | 双向跨链 | 完整流程测试 |
+| **ERC20代币** | EVM | Solana | TokenBinding绑定 + Lock/Unlock或Mint/Burn |
+| **SPL代币** | Solana | EVM | TokenBinding绑定 + Lock/Unlock或Mint/Burn |
+| **测试代币** | USDC等 | 双向跨链 | 完整流程测试（通过TokenBinding） |
 
 **不支持**: 原生ETH、原生SOL（简化设计）
 
@@ -234,49 +235,49 @@ function unlockTokens(bytes memory vaa)
 ### 2.3 WrappedToken.sol - 包装代币
 
 **概念说明**：
-- wrappedToken = 目标链上铸造的源链代币映射（非原生代币）
-- 例如：Ethereum USDC（ERC20）→ Solana wrappedUSDC（SPL）
-- 注意：这不是wrapped ETH/SOL，我们不支持原生代币跨链
+- 本项目使用 **TokenBinding机制** 而非传统的wrapped token模式
+- TokenBinding = 源链代币与目标链代币的绑定映射关系
+- 支持同币种跨链（USDC → USDC）和不同币种兑换（USDC → USDT）
+- 注意：不支持原生ETH/SOL跨链，仅支持ERC20/SPL代币
 
 **跨链模式**：
 ```
-Lock/Unlock模式（目标链已有原生代币）:
-  源链: 锁定原生USDC
-  目标链: 解锁原生USDC
-
-Mint/Burn模式（目标链没有该代币）:
-  源链: 锁定原生USDC
-  目标链: 铸造wrappedUSDC
+TokenBinding机制（灵活配置）:
+  1. 注册TokenBinding: register_token_binding(sourceToken, targetToken, rate)
+  2. 源链: 锁定源代币
+  3. 目标链: 根据Binding配置解锁/铸造目标代币
+  4. 支持多对多映射: 一个源代币可绑定多个目标代币
 ```
 
 ---
 
-#### 2.3.1 createWrapped
+#### 2.3.1 registerTokenBinding
 
-**功能**: 首次跨链某代币时，在目标链创建wrapped版本
+**功能**: 注册源链代币与目标链代币的绑定关系（取代createWrapped）
 
 **接口**:
 ```solidity
-function createWrapped(
-    address originalToken,
-    uint16 originalChain,
-    string memory name,
-    string memory symbol,
-    uint8 decimals
-) external returns (address wrappedToken);
+function registerTokenBinding(
+    uint16 sourceChain,
+    bytes32 sourceToken,
+    uint16 targetChain,
+    bytes32 targetToken,
+    uint64 rateNumerator,
+    uint64 rateDenominator
+) external returns (bytes32 bindingId);
 ```
 
 **参数**:
-- `originalToken`: 源链代币地址
-- `originalChain`: 源链ID（如1=Ethereum）
-- `name`: 代币名称（如"Wrapped USDC (Wormhole)"）
-- `symbol`: 代币符号（如"wUSDC"）
-- `decimals`: 精度（如6）
+- `sourceChain`: 源链ID
+- `sourceToken`: 源链代币地址（32字节格式）
+- `targetChain`: 目标链ID
+- `targetToken`: 目标链代币地址（32字节格式）
+- `rateNumerator/rateDenominator`: 兑换比率（如1:1或998:1000）
 
 **使用场景**:
-- Ethereum USDC首次跨链到Solana时调用
-- 在Solana创建wrappedUSDC（SPL代币）
-- 后续跨链直接使用已创建的wrapped版本
+- 首次建立跨链代币映射关系时调用
+- 支持同币种（USDC → USDC）和跨币种（USDC → USDT）
+- 支持多对多：一个源代币可绑定多个目标代币
 
 ---
 
@@ -1513,30 +1514,34 @@ pub enum BridgeError {
 
 ## 附录
 
-### A. wrappedUSDC跨链测试场景
+### A. TokenBinding跨链测试场景
 
-**测试流程**:
+**测试流程**（基于TokenBinding机制）:
 
 ```
 1. 准备阶段
    - 在Ethereum部署USDC合约（测试币）
-   - 用户持有1000 USDC
+   - 在Solana部署目标代币（可以是USDC或USDT等）
+   - 注册TokenBinding: register_token_binding(eth_usdc, sol_usdc, 1, 1)
+   - 用户在Ethereum持有1000 USDC
 
-2. Ethereum → Solana
-   - 用户调用TokenVault.lockTokens(USDC, 1000, 2, solanaAddress)
+2. Ethereum → Solana（跨链转账）
+   - 用户调用TokenVault.lockTokens(USDC, 1000, targetChain, targetToken, recipient)
    - Guardian监听事件并签名
    - Relayer获取VAA并提交到Solana
-   - Solana铸造wrappedUSDC
-   - 用户在Solana收到1000 wrappedUSDC
+   - Solana根据TokenBinding验证并解锁/铸造目标代币
+   - 用户在Solana收到1000目标代币（按兑换比率）
 
-3. Solana → Ethereum（赎回）
-   - 用户调用token_bridge.transfer_tokens(wrappedUSDC, 1000, 1, ethAddress)
+3. Solana → Ethereum（反向跨链）
+   - 用户调用token_bridge.transfer_tokens(sourceToken, amount, targetChain, targetToken, recipient)
    - Guardian监听并签名
    - Relayer提交VAA到Ethereum
-   - Ethereum销毁wrappedUSDC并解锁原始USDC
-   - 用户收到1000 USDC
+   - Ethereum根据TokenBinding验证并解锁源代币
+   - 用户收到相应数量的源代币
 
 4. 验证
+   - TokenBinding匹配验证
+   - 兑换比率正确性验证
    - 余额检查
    - 事件日志验证
    - VAA状态验证

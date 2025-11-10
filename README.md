@@ -112,7 +112,6 @@
 | **Guardian Set** | Guardian集合及其版本号，支持升级和过期 |
 | **Quorum** | 签名门限，13/19（68%+） |
 | **TokenBinding** | 代币绑定映射机制，将源链代币绑定到目标链代币，支持不同币种间兑换（如USDC→USDT），支持多对多关系 |
-| **Wrapped Token** | 目标链铸造的源链代币映射（非原生代币），如Ethereum USDC → Solana wrappedUSDC（注：本项目优先使用TokenBinding机制） |
 | **Consistency Level** | 确认级别，交易需等待的区块数（1=即时, 15=安全, 200=最终确认） |
 
 ---
@@ -266,7 +265,7 @@ newlife/
   - EVM/SVM合约用户接口测试
   - 接口鉴权测试
   - **跨链原子性测试**（重点）
-  - **WrappedUSDC跨链完整流程测试**
+  - **TokenBinding跨链完整流程测试**（重点）
   - **Guardian Set跨链升级原子性测试**
 
 ### 3. PROGRESS.md

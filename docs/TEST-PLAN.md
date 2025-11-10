@@ -1,8 +1,9 @@
 # 跨链桥项目 - 测试套件规划
 
-> **文档版本**: v2.0  
+> **文档版本**: v2.1  
 > **创建日期**: 2025-11-08  
-> **更新说明**: 聚焦宏观测试场景，重点测试跨链原子性和Guardian升级
+> **最后更新**: 2025-11-10  
+> **更新说明**: 文档修订 - 将测试重点从wrappedUSDC转移到TokenBinding机制
 
 ---
 
@@ -60,7 +61,7 @@
 
 | 优先级 | 测试内容 | 说明 |
 |-------|---------|------|
-| **P0** | 跨链原子性、Guardian升级原子性、wrappedUSDC完整流程 | 核心功能，必须通过 |
+| **P0** | 跨链原子性、Guardian升级原子性、TokenBinding跨链流程 | 核心功能，必须通过 |
 | **P1** | 接口鉴权、错误处理、边界条件 | 重要功能 |
 | **P2** | 性能指标、监控告警 | 辅助功能 |
 
@@ -70,9 +71,9 @@
 
 ### 2.1 端到端测试场景 (E2E)
 
-#### E2E-001: wrappedUSDC完整跨链流程 ⭐⭐⭐
+#### E2E-001: TokenBinding跨链完整流程（Ethereum → Solana）⭐⭐⭐
 
-**测试目标**: 验证ERC20代币从Ethereum到Solana的完整跨链转账
+**测试目标**: 验证基于TokenBinding机制的ERC20代币从Ethereum到Solana的完整跨链转账
 
 **前置条件**:
 - Ethereum和Solana测试环境已部署
@@ -108,10 +109,11 @@
   - 验证: 交易成功
   - 验证: PostedVAA账户创建
 
-步骤5: 铸造wrappedUSDC
+步骤5: 根据TokenBinding解锁/铸造目标代币
   - 用户调用 token_bridge.complete_transfer(vaa)
-  - 验证: wrappedUSDC铸造成功
-  - 验证: 用户在Solana收到1000 wrappedUSDC
+  - 验证: TokenBinding验证通过（源代币、目标代币、兑换比率匹配）
+  - 验证: 目标代币根据绑定配置解锁或铸造
+  - 验证: 用户在Solana收到正确数量的目标代币（按兑换比率计算）
 
 步骤6: 验证状态
   - 验证: Ethereum的consumedVAAs[vaaHash] = false（仍可查询）
@@ -131,20 +133,20 @@
 
 ---
 
-#### E2E-002: wrappedUSDC赎回流程（Solana → Ethereum）⭐⭐⭐
+#### E2E-002: TokenBinding双向跨链流程（Solana → Ethereum）⭐⭐⭐
 
-**测试目标**: 验证包装代币赎回原生代币
+**测试目标**: 验证TokenBinding机制支持的双向跨链转账
 
 **前置条件**:
-- E2E-001已成功执行
-- 用户在Solana持有1000 wrappedUSDC
+- E2E-001已成功执行（或独立设置TokenBinding）
+- 用户在Solana持有目标链代币（通过E2E-001跨链获得或直接持有）
 
 **测试步骤**:
 
 ```
-步骤1: Solana销毁wrappedUSDC
-  - 用户调用 token_bridge.transfer_tokens(wrappedUSDC, 1000, 1, ethRecipient)
-  - 验证: wrappedUSDC销毁
+步骤1: Solana锁定/销毁源代币
+  - 用户调用 token_bridge.transfer_tokens(sourceToken, amount, targetChain, targetToken, recipient)
+  - 验证: 根据TokenBinding配置，源代币已锁定或销毁
   - 验证: MessagePublished日志发出
 
 步骤2: Guardian监听并签名
@@ -624,19 +626,28 @@ test_accounts:
 
 ---
 
-### 4.2 测试代币
+### 4.2 测试代币（基于TokenBinding）
 
-**wrappedUSDC**:
+**测试USDC**（用于TokenBinding测试）:
 ```yaml
-ethereum:
+ethereum_usdc:
   address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
   decimals: 6
   test_supply: 1000000000000  # 1M USDC
   
-solana:
+solana_usdc:
   address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
   decimals: 6
-  test_supply: 0  # 初始为0，通过跨链铸造
+  test_supply: 1000000000000  # 1M USDC（原生或预铸造）
+
+token_binding:
+  source_chain: 1  # Ethereum
+  source_token: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+  target_chain: 900  # Solana
+  target_token: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+  rate_numerator: 1
+  rate_denominator: 1  # 1:1兑换
+  enabled: true
 ```
 
 ---
