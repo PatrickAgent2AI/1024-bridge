@@ -5,12 +5,9 @@ package_manager = "yarn"
 resolution = true
 skip-lint = false
 
-[workspace]
-types = "trident"
-
 [programs.localnet]
-solana_core = "worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth"
-token_bridge = "wormDTUJ6AWPNvk59vGQbDvGJmqbDTdgWgAqcLBCgUb"
+solana_core = "AqUN6c4a6PZizvr61oF2rGjCU71W3HjbCKTxaXn6w8P"
+token_bridge = "2v4V1WVWGoSnKUjF1XWPT7BrJWYcF38p3fqooAfoVrJW"
 
 [registry]
 url = "https://api.apr.dev"

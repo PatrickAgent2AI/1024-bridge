@@ -5,10 +5,11 @@ pub struct Bridge {
     pub guardian_set_index: u32,
     pub message_fee: u64,
     pub paused: bool,
+    pub authority: Pubkey,
 }
 
 impl Bridge {
-    pub const LEN: usize = 4 + 8 + 1;
+    pub const LEN: usize = 4 + 8 + 1 + 32;
 }
 
 #[account]

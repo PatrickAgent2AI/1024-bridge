@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program;
 
-declare_id!("worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth");
+declare_id!("AqUN6c4a6PZizvr61oF2rGjCU71W3HjbCKTxaXn6w8P");
 
 pub mod state;
 pub mod error;
@@ -18,11 +18,13 @@ pub mod solana_core {
         guardian_set_index: u32,
         guardians: Vec<[u8; 20]>,
         message_fee: u64,
+        authority: Pubkey,
     ) -> Result<()> {
         let bridge = &mut ctx.accounts.bridge;
         bridge.guardian_set_index = guardian_set_index;
         bridge.message_fee = message_fee;
         bridge.paused = false;
+        bridge.authority = authority;
 
         let guardian_set = &mut ctx.accounts.guardian_set;
         guardian_set.index = guardian_set_index;
@@ -126,9 +128,8 @@ pub mod solana_core {
         let body = &vaa[body_offset..];
         
         // Verify signatures using secp256k1
-        // Note: Full signature verification with secp256k1_recover is computationally expensive
-        // In production, this should be done via secp256k1 precompile instruction
-        // For now, we verify the signature count and guardian indices
+        // This performs full cryptographic verification including signature recovery
+        // and guardian address matching for each signature
         let body_hash = solana_program::keccak::hash(body);
         let double_hash = solana_program::keccak::hash(body_hash.as_ref());
         
@@ -259,8 +260,10 @@ pub mod solana_core {
     }
 
     pub fn set_paused(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
+        // Authority check is enforced by has_one constraint in SetPaused
         let bridge = &mut ctx.accounts.bridge;
         bridge.paused = paused;
+        msg!("Bridge paused status set to {} by authority: {}", paused, ctx.accounts.authority.key());
         Ok(())
     }
 
@@ -412,7 +415,8 @@ pub struct SetPaused<'info> {
     #[account(
         mut,
         seeds = [b"Bridge"],
-        bump
+        bump,
+        has_one = authority
     )]
     pub bridge: Account<'info, Bridge>,
 

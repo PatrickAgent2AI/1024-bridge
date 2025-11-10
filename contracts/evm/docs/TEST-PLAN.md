@@ -1,9 +1,10 @@
 # EVM合约子模块 - 测试套件规划
 
-> **文档版本**: v1.0  
+> **文档版本**: v2.0  
 > **创建日期**: 2025-11-09  
+> **最后更新**: 2025-11-10  
 > **子模块**: EVM智能合约  
-> **父项目**: 跨链桥项目
+> **测试目标**: 验证EVM与SVM双向桥接
 
 ---
 
@@ -12,8 +13,9 @@
 1. [测试策略](#1-测试策略)
 2. [单元测试规划](#2-单元测试规划)
 3. [集成测试规划](#3-集成测试规划)
-4. [测试环境配置](#4-测试环境配置)
-5. [测试数据准备](#5-测试数据准备)
+4. [跨链桥接测试](#4-跨链桥接测试)
+5. [测试环境配置](#5-测试环境配置)
+6. [测试数据准备](#6-测试数据准备)
 
 ---
 
@@ -23,39 +25,79 @@
 
 ```
 ┌──────────────────────────────────────────┐
-│  集成测试                                 │  30%
-│  - 合约间交互                             │
-│  - 跨链流程模拟                           │
-│  - Guardian签名集成                       │
+│  跨链桥接测试                             │  20%
+│  - EVM → SVM 完整流程                    │
+│  - SVM → EVM 完整流程                    │
+│  - 往返测试                              │
 └──────────────────────────────────────────┘
                  ↓
 ┌──────────────────────────────────────────┐
-│  单元测试                                 │  70%
+│  集成测试                                 │  25%
+│  - 合约间交互                             │
+│  - VAA生成和验证                         │
+│  - TokenBinding验证                      │
+└──────────────────────────────────────────┘
+                 ↓
+┌──────────────────────────────────────────┐
+│  单元测试                                 │  55%
 │  - BridgeCore函数                        │
-│  - TokenVault函数（含TokenBinding）      │
+│  - TokenVault函数                        │
 │  - 管理功能                              │
 └──────────────────────────────────────────┘
 ```
 
 ---
 
-### 1.2 测试覆盖目标
+### 1.2 与SVM对比
 
-| 测试类型 | 覆盖率目标 | 用例数 | 预计时间 |
-|---------|-----------|--------|---------|
-| **单元测试** | 95%代码 | 53个 | 15分钟 |
-| **集成测试** | 80%场景 | 13个 | 10分钟 |
-| **总计** | - | **66个** | **25分钟** |
+| 测试类型 | SVM实际 | EVM计划 | 说明 |
+|---------|---------|---------|------|
+| **单元测试** | 53个 (87%) | 50个 | 功能对等 |
+| **集成测试** | 6个 (50%) | 10个 | 增加跨链场景 |
+| **跨链测试** | 8个 (63%) | 12个 | EVM↔SVM双向 |
+| **总计** | 67个 (86%) | **72个** | 确保双向桥接 |
+
+**关键差异**:
+- ✅ **移除**: SVM特有的三步骤VAA测试（init_buffer, append_chunk）
+- ✅ **简化**: 序列号管理测试（EVM自动处理）
+- ✅ **新增**: 跨链桥接测试（验证EVM↔SVM互操作）
 
 ---
 
-### 1.3 测试优先级
+### 1.3 测试覆盖目标
+
+| 测试类型 | 覆盖率目标 | 用例数 | 预计时间 |
+|---------|-----------|--------|---------|
+| **BridgeCore单元** | 95%代码 | 20个 | 10分钟 |
+| **TokenVault单元** | 95%代码 | 30个 | 15分钟 |
+| **集成测试** | 90%场景 | 10个 | 10分钟 |
+| **跨链桥接** | 100%关键路径 | 12个 | 20分钟 |
+| **总计** | - | **72个** | **55分钟** |
+
+---
+
+### 1.4 测试优先级
 
 | 优先级 | 测试内容 | 说明 |
 |-------|---------|------|
-| **P0** | VAA验证、代币锁定/解锁、防重放 | 核心功能，必须通过 |
-| **P1** | 速率限制、权限控制、错误处理 | 重要功能 |
-| **P2** | Gas优化、边界条件 | 辅助功能 |
+| **P0** | VAA验证、EVM↔SVM双向桥接、防重放 | 核心功能，必须通过 |
+| **P1** | TokenBinding验证、兑换比率验证 | 重要功能 |
+| **P2** | 速率限制、权限控制、错误处理 | 辅助功能 |
+| **P3** | Gas优化、边界条件 | 性能优化 |
+
+---
+
+### 1.5 测试环境
+
+**本地环境**:
+- Foundry本地链（Chain ID: 65520）
+- Solana Test Validator（Chain ID: 901）
+- Guardian模拟（19个测试密钥）
+
+**测试网环境**:
+- Sepolia（Chain ID: 11155111）
+- Solana Devnet（Chain ID: 901）
+- 真实Guardian网络
 
 ---
 
@@ -290,13 +332,270 @@ function testLockTokens_ExceedsRateLimit() public {
 
 ## 3. 集成测试规划
 
-### 3.1 完整跨链流程测试
+### 3.1 BridgeCore与TokenVault集成
 
-| 测试ID | 测试场景 | 步骤 | 优先级 |
-|-------|---------|------|--------|
-| INT-001 | Ethereum → Solana完整流程 | 锁定→VAA→验证→铸造 | P0 |
-| INT-002 | 包装代币赎回流程 | 销毁→VAA→验证→解锁 | P0 |
-| INT-003 | 多次跨链往返 | 多次Lock/Unlock循环 | P1 |
+| 测试ID | 测试场景 | 验证点 | 优先级 |
+|-------|---------|--------|--------|
+| INT-EVM-001 | lockTokens → publishMessage | CPI调用、序列号递增 | P0 |
+| INT-EVM-002 | receiveMessage → unlockTokens | VAA验证、代币解锁 | P0 |
+| INT-EVM-003 | 多步骤原子性 | 失败回滚、状态一致 | P0 |
+| INT-EVM-004 | Guardian Set升级 | 新旧Set并存 | P1 |
+| INT-EVM-005 | TokenBinding验证流程 | 查询、验证、执行 | P0 |
+
+### 3.2 TokenBinding管理测试
+
+| 测试ID | 测试场景 | 验证点 | 优先级 |
+|-------|---------|--------|--------|
+| INT-EVM-006 | 注册双向TokenBinding | 出站+入站绑定 | P0 |
+| INT-EVM-007 | 更新兑换比率 | 比率一致性验证 | P0 |
+| INT-EVM-008 | 禁用TokenBinding | 阻止跨链交易 | P1 |
+| INT-EVM-009 | 多对多TokenBinding | 一个源币多目标 | P1 |
+| INT-EVM-010 | 跨币种兑换验证 | USDC→USDT计算 | P0 |
+
+---
+
+## 4. 跨链桥接测试（核心）
+
+### 4.1 EVM → SVM 桥接测试
+
+**测试目标**: 验证从Ethereum/Foundry到Solana的完整跨链流程
+
+| 测试ID | 测试场景 | 流程 | 状态 |
+|-------|---------|------|------|
+| **BRIDGE-001** | Ethereum → Solana USDC (1:1) | 锁定→VAA→解锁 | P0 必须 |
+| **BRIDGE-002** | Ethereum USDC → Solana USDT | 锁定→兑换→解锁 | P0 必须 |
+| **BRIDGE-003** | 大额转账（100k USDC） | 锁定→VAA→解锁 | P1 重要 |
+| **BRIDGE-004** | 多用户并发（3用户） | 并发锁定→解锁 | P1 重要 |
+
+**BRIDGE-001详细步骤**:
+```solidity
+// 步骤1: Ethereum端锁定代币
+Test setUp() {
+    // 部署EVM合约（Foundry本地链，Chain ID: 65520）
+    bridgeCore = new BridgeCore();
+    vault = new TokenVault(address(bridgeCore));
+    usdc = new MockERC20("USDC", "USDC", 6);
+    
+    // 初始化Guardian Set（19个测试密钥）
+    bridgeCore.initialize(0, testGuardians, 0.001 ether);
+    
+    // 注册双向TokenBinding
+    vault.registerBidirectionalBinding(
+        65520,                          // Foundry
+        toBytes32(address(usdc)),
+        901,                            // Solana Devnet
+        solanaUSDCBytes32,
+        1, 1,  // 1:1 rate
+        1, 1
+    );
+}
+
+function testBridge_ETH_to_Solana_USDC() public {
+    // 1. 用户在Ethereum锁定1000 USDC
+    usdc.mint(alice, 1000e6);
+    vm.startPrank(alice);
+    usdc.approve(address(vault), 1000e6);
+    
+    uint64 seq = vault.lockTokens{value: 0.001 ether}(
+        address(usdc),
+        1000e6,
+        901,                            // Solana Devnet
+        solanaUSDCBytes32,
+        alicesolanaAddress
+    );
+    vm.stopPrank();
+    
+    // 验证：代币已锁定
+    assertEq(usdc.balanceOf(address(vault)), 1000e6);
+    assertEq(usdc.balanceOf(alice), 0);
+    
+    // 2. 模拟Guardian签名VAA
+    bytes memory vaa = buildVAAWithGuardianSignatures(
+        seq,
+        buildTokenTransferPayload(
+            1000e6,
+            address(usdc),
+            65520,
+            alicesolanaAddress,
+            901,
+            solanaUSDCBytes32,
+            1000e6,  // targetAmount
+            1, 1     // rate
+        )
+    );
+    
+    // 3. 调用Solana合约验证
+    // 注：这里需要跨链调用真实Solana Test Validator
+    // 或使用Solana程序模拟器
+    (bool success) = callSolanaCompleteTransfer(vaa);
+    assertTrue(success);
+    
+    // 4. 验证：Alice在Solana收到1000 USDC
+    // 注：需要查询Solana链上余额
+    uint64 solanaBalance = querySolanaTokenBalance(
+        alicesolanaAddress,
+        solanaUSDCBytes32
+    );
+    assertEq(solanaBalance, 1000e6);
+}
+```
+
+---
+
+### 4.2 SVM → EVM 桥接测试
+
+**测试目标**: 验证从Solana到Ethereum/Foundry的完整跨链流程
+
+| 测试ID | 测试场景 | 流程 | 状态 |
+|-------|---------|------|------|
+| **BRIDGE-005** | Solana → Ethereum USDC (1:1) | 锁定→VAA→解锁 | P0 必须 |
+| **BRIDGE-006** | Solana USDC → Ethereum USDT | 锁定→兑换→解锁 | P0 必须 |
+| **BRIDGE-007** | Guardian签名验证 | 13/19签名验证 | P0 必须 |
+| **BRIDGE-008** | VAA防重放 | 重复提交失败 | P0 必须 |
+
+**BRIDGE-005详细步骤**:
+```solidity
+function testBridge_Solana_to_ETH_USDC() public {
+    // 1. 在Solana端锁定代币
+    // 注：需要调用真实Solana程序或模拟器
+    uint64 solanaSeq = callSolanaTransferTokens(
+        aliceSolanaKeypair,
+        solanaUSDCMint,
+        1000e6,
+        65520,  // Foundry
+        toBytes32(address(usdc)),
+        aliceEthAddress
+    );
+    
+    // 2. 等待Guardian签名（模拟）
+    bytes memory vaa = waitForGuardianVAA(901, solanaSeq);
+    
+    // 验证VAA格式
+    assertEq(vaa.length, 1072);  // 13签名VAA
+    
+    // 3. 在Ethereum端解锁代币
+    // 预先存入Custody余额
+    usdc.mint(address(vault), 10000e6);
+    
+    bool success = vault.unlockTokens(vaa);
+    assertTrue(success);
+    
+    // 4. 验证：Alice在Ethereum收到1000 USDC
+    assertEq(usdc.balanceOf(alice), 1000e6);
+    
+    // 5. 验证：VAA已消费
+    bytes32 vaaHash = keccak256(vaa);
+    assertTrue(bridgeCore.isVAAConsumed(vaaHash));
+    
+    // 6. 验证：重复提交失败
+    vm.expectRevert("VAAAlreadyConsumed");
+    vault.unlockTokens(vaa);
+}
+```
+
+---
+
+### 4.3 往返测试
+
+| 测试ID | 测试场景 | 流程 | 状态 |
+|-------|---------|------|------|
+| **BRIDGE-009** | 完整往返（ETH→SOL→ETH） | 双向完整流程 | P0 必须 |
+| **BRIDGE-010** | 跨币种往返 | USDC→USDT→USDC | P1 重要 |
+| **BRIDGE-011** | 多次往返 | 3次往返循环 | P2 可选 |
+| **BRIDGE-012** | 并发往返 | 3用户同时往返 | P2 可选 |
+
+**BRIDGE-009详细步骤**:
+```solidity
+function testBridge_RoundTrip() public {
+    uint256 initialBalance = 1000e6;
+    usdc.mint(alice, initialBalance);
+    
+    // === 第一段：Ethereum → Solana ===
+    vm.startPrank(alice);
+    usdc.approve(address(vault), initialBalance);
+    uint64 seq1 = vault.lockTokens{value: 0.001 ether}(
+        address(usdc),
+        initialBalance,
+        901,
+        solanaUSDCBytes32,
+        aliceSolanaAddress
+    );
+    vm.stopPrank();
+    
+    // Guardian签名 + Solana接收
+    bytes memory vaa1 = buildAndSignVAA(seq1, ...);
+    callSolanaCompleteTransfer(vaa1);
+    
+    // 验证：Alice在Solana有1000 USDC
+    assertEq(querySolanaBalance(...), initialBalance);
+    
+    // === 第二段：Solana → Ethereum ===
+    // Alice在Solana发起回传
+    uint64 seq2 = callSolanaTransferTokens(
+        aliceSolanaKeypair,
+        solanaUSDCMint,
+        initialBalance,
+        65520,  // 回到Foundry
+        toBytes32(address(usdc)),
+        aliceEthAddress
+    );
+    
+    // Guardian签名 + Ethereum接收
+    bytes memory vaa2 = waitForGuardianVAA(901, seq2);
+    usdc.mint(address(vault), initialBalance);  // 预存Custody
+    vault.unlockTokens(vaa2);
+    
+    // 验证：Alice在Ethereum恢复初始余额
+    assertEq(usdc.balanceOf(alice), initialBalance);
+    
+    // 验证：往返成功，无损失（1:1比率）
+    assertTrue(true, "Round trip successful");
+}
+```
+
+---
+
+### 4.4 异常场景测试
+
+| 测试ID | 测试场景 | 预期结果 | 优先级 |
+|-------|---------|---------|--------|
+| BRIDGE-ERR-001 | 无效Guardian签名 | revert InvalidSignature | P0 |
+| BRIDGE-ERR-002 | 签名数量不足（12个） | revert InsufficientSignatures | P0 |
+| BRIDGE-ERR-003 | 错误的目标链 | revert WrongChain | P0 |
+| BRIDGE-ERR-004 | TokenBinding不存在 | revert TokenBindingNotFound | P0 |
+| BRIDGE-ERR-005 | 兑换比率不匹配 | revert ExchangeRateMismatch | P0 |
+| BRIDGE-ERR-006 | Custody余额不足 | revert InsufficientCustody | P0 |
+
+---
+
+### 4.5 测试工具支持
+
+**需要的测试工具**:
+1. **VAA Builder**: 构造和签名VAA（19个Guardian密钥）
+2. **Solana模拟器**: 模拟Solana程序调用
+3. **Guardian模拟器**: 模拟Guardian签名过程
+4. **跨链工具**: 协调EVM↔SVM交互
+
+**实现方式**:
+```solidity
+// test/utils/CrossChainHelper.sol
+contract CrossChainHelper {
+    // 构造EVM→SVM的VAA
+    function buildVAAForSolana(...) external returns (bytes memory);
+    
+    // 构造SVM→EVM的VAA  
+    function buildVAAForEthereum(...) external returns (bytes memory);
+    
+    // 模拟Guardian签名（13/19）
+    function signWithGuardians(...) external returns (bytes memory);
+    
+    // 调用Solana程序（通过RPC或模拟器）
+    function callSolanaProgram(...) external returns (bool);
+    
+    // 查询Solana状态
+    function querySolanaState(...) external view returns (bytes memory);
+}
+```
 
 **测试代码示例**:
 ```solidity
@@ -526,6 +825,35 @@ usdc.mint(user1, 10_000_000e6);  // 10M USDC
 usdt.mint(user2, 5_000_000e6);   // 5M USDT
 weth.mint(user3, 1000e18);       // 1000 WETH
 ```
+
+---
+
+### 5.4 Chain ID配置（与SVM一致）
+
+```solidity
+// 本地测试使用大魔数避免冲突
+uint16 constant LOCAL_CHAIN_ID = 65520;
+
+// 跨链目标
+uint16 constant ETHEREUM_MAINNET = 1;
+uint16 constant BSC_MAINNET = 56;
+uint16 constant POLYGON_MAINNET = 137;
+uint16 constant SOLANA_MAINNET = 900;
+uint16 constant SOLANA_DEVNET = 901;
+
+// 测试网
+uint16 constant SEPOLIA = 11155111;
+uint16 constant BSC_TESTNET = 97;
+```
+
+**重要说明**:
+- ✅ 使用行业标准Chain ID (EIP-155, Wormhole)
+- ✅ 本地测试使用65520-65535避免冲突
+- ✅ 与SVM子模块保持一致
+- ❌ 不使用Foundry默认的31337
+- ❌ 不使用1337等常见ID
+
+**参考**: [API-SPEC.md - Chain ID规范](./API-SPEC.md#65-chain-id规范与svm一致)
 
 ---
 

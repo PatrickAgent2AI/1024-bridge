@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer};
 use anchor_lang::solana_program;
 
-declare_id!("wormDTUJ6AWPNvk59vGQbDvGJmqbDTdgWgAqcLBCgUb");
+declare_id!("2v4V1WVWGoSnKUjF1XWPT7BrJWYcF38p3fqooAfoVrJW");
 
 pub mod state;
 pub mod error;
@@ -24,7 +24,9 @@ pub mod token_bridge {
         Ok(())
     }
 
-    pub fn initialize_custody(_ctx: Context<InitializeCustody>) -> Result<()> {
+    pub fn initialize_custody(ctx: Context<InitializeCustody>) -> Result<()> {
+        // Authority check is enforced by has_one constraint in InitializeCustody
+        msg!("Custody account initialized by authority: {}", ctx.accounts.authority.key());
         Ok(())
     }
 
@@ -308,6 +310,13 @@ pub struct Initialize<'info> {
 #[derive(Accounts)]
 pub struct InitializeCustody<'info> {
     #[account(
+        seeds = [b"BridgeConfig"],
+        bump,
+        has_one = authority
+    )]
+    pub bridge_config: Account<'info, BridgeConfig>,
+
+    #[account(
         init,
         payer = payer,
         token::mint = mint,
@@ -318,6 +327,8 @@ pub struct InitializeCustody<'info> {
     pub custody: Account<'info, TokenAccount>,
 
     pub mint: Account<'info, Mint>,
+
+    pub authority: Signer<'info>,
 
     #[account(mut)]
     pub payer: Signer<'info>,

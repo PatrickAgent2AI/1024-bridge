@@ -187,6 +187,10 @@ export type SolanaCore = {
         {
           "name": "messageFee",
           "type": "u64"
+        },
+        {
+          "name": "authority",
+          "type": "pubkey"
         }
       ]
     },
@@ -441,7 +445,10 @@ export type SolanaCore = {
         },
         {
           "name": "authority",
-          "signer": true
+          "signer": true,
+          "relations": [
+            "bridge"
+          ]
         }
       ],
       "args": [
@@ -667,6 +674,10 @@ export type SolanaCore = {
           {
             "name": "paused",
             "type": "bool"
+          },
+          {
+            "name": "authority",
+            "type": "pubkey"
           }
         ]
       }

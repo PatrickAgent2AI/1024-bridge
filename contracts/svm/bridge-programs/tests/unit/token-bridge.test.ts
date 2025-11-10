@@ -92,7 +92,7 @@ describe("token-bridge 单元测试", () => {
       const messageFee = new BN(1_000_000);
 
       await coreProgram.methods
-        .initialize(0, guardians, messageFee)
+        .initialize(0, guardians, messageFee, payer.publicKey)
         .accounts({
           bridge: bridgePda,
           guardianSet: guardianSetPda,
@@ -133,8 +133,10 @@ describe("token-bridge 单元测试", () => {
     await tokenProgram.methods
       .initializeCustody()
       .accounts({
+        bridgeConfig: bridgeConfigPda,
         custody: custodyAccount,
         mint: solUsdcMint,
+        authority: payer.publicKey,
         payer: payer.publicKey,
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
@@ -1469,8 +1471,10 @@ describe("token-bridge 单元测试", () => {
       await tokenProgram.methods
         .initializeCustody()
         .accounts({
+          bridgeConfig: bridgeConfigPda,
           custody: emptyCustodyPda,
           mint: emptyMint,
+          authority: payer.publicKey,
           payer: payer.publicKey,
           tokenProgram: TOKEN_PROGRAM_ID,
           systemProgram: SystemProgram.programId,

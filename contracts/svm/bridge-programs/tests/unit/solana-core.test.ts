@@ -75,7 +75,7 @@ describe("solana-core 单元测试", () => {
       const messageFee = new BN(1_000_000);
       
       await program.methods
-        .initialize(0, guardians, messageFee)
+        .initialize(0, guardians, messageFee, payer.publicKey)
         .accounts({
           bridge: bridgePda,
           guardianSet: guardianSetPda,
@@ -89,6 +89,7 @@ describe("solana-core 单元测试", () => {
       expect(bridge.guardianSetIndex).to.equal(0);
       expect(bridge.messageFee.toNumber()).to.equal(1_000_000);
       expect(bridge.paused).to.be.false;
+      expect(bridge.authority.toString()).to.equal(payer.publicKey.toString());
     });
 
     it("UNIT-SC-002: 初始化Guardian Set", async () => {
@@ -110,7 +111,7 @@ describe("solana-core 单元测试", () => {
       
       try {
         await program.methods
-          .initialize(0, guardians, messageFee)
+          .initialize(0, guardians, messageFee, payer.publicKey)
           .accounts({
             bridge: bridgePda,
             guardianSet: guardianSetPda,

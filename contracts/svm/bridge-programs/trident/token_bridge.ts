@@ -147,6 +147,30 @@ export type TokenBridge = {
       ],
       "accounts": [
         {
+          "name": "bridgeConfig",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  66,
+                  114,
+                  105,
+                  100,
+                  103,
+                  101,
+                  67,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
           "name": "custody",
           "writable": true,
           "pda": {
@@ -172,6 +196,13 @@ export type TokenBridge = {
         },
         {
           "name": "mint"
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "bridgeConfig"
+          ]
         },
         {
           "name": "payer",

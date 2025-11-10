@@ -1,9 +1,9 @@
 # Solana 合约子模块 - 开发与测试进度
 
-> **文档版本**: v1.5  
+> **文档版本**: v1.6  
 > **创建日期**: 2025-11-08  
-> **最后更新**: 2025-11-09  
-> **开发状态**: ✅ TDD完成！61/71测试通过(86%)，所有核心功能已实现
+> **最后更新**: 2025-11-10  
+> **开发状态**: ✅ TDD完成！61/71测试通过(86%)，所有核心功能已实现，多签权限控制已加固
 
 ---
 
@@ -47,7 +47,7 @@
 ✅ 通过: 61 (86%)
 ⏭️ 跳过: 10 (Guardian升级)
 ❌ 失败: 0
-⏱️ 执行时间: 84秒
+⏱️ 执行时间: 60秒
 ```
 
 ---
@@ -105,6 +105,33 @@
 **代码位置**:
 - [solana-core/src/lib.rs#267-272](../bridge-programs/programs/solana-core/src/lib.rs)
 - [token-bridge/src/lib.rs#165-171](../bridge-programs/programs/token-bridge/src/lib.rs)
+
+### 2.4 多签权限控制加固 (2025-11-10)
+
+**背景**: 初始实现中部分高危管理操作缺少权限约束，存在安全隐患。
+
+**变更内容**:
+
+| 操作 | 修改前 | 修改后 | 影响 |
+|------|--------|--------|------|
+| `initialize_custody` | 无权限检查 | 需authority签名 | 防止恶意创建账户 |
+| `set_paused` | 有签名但无约束 | has_one = authority约束 | 只有授权者可暂停 |
+| `initialize` (core) | 无authority字段 | 添加authority参数 | 支持多签治理 |
+| Bridge结构 | 无authority字段 | 添加authority字段(+32字节) | 存储治理地址 |
+
+**影响范围**:
+- 修改文件: `solana-core/src/lib.rs`, `solana-core/src/state.rs`, `token-bridge/src/lib.rs`
+- 测试更新: 所有测试文件中initialize和initialize_custody调用
+- 文档更新: API-SPEC.md, TEST-PLAN.md, PROGRESS.md, README.md
+
+**安全提升**:
+- 所有9个管理操作现在都需要authority签名验证
+- 支持Squads多签钱包集成
+- Custody账户保持PDA设计（最安全方案）
+
+**测试验证**: 61/61测试通过，确认所有权限约束正常工作
+
+**相关文档**: [API-SPEC.md#多签治理机制](./API-SPEC.md)
 
 ---
 

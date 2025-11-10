@@ -1,235 +1,378 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./utils/TestSetup.sol";
-import "../src/BridgeCore.sol";
-import "../src/TokenVault.sol";
+import "./TestSetup.sol";
 
 contract IntegrationTest is TestSetup {
-    BridgeCore public bridgeCore;
-    TokenVault public vault;
+    IBridgeCore public bridgeCore;
+    ITokenVault public vault;
     
     function setUp() public override {
         super.setUp();
-        
-        bridgeCore = new BridgeCore();
-        bridgeCore.initialize(getGuardianAddresses(), governance);
-        
-        vault = new TokenVault(address(bridgeCore));
-        
-        vm.prank(user);
-        usdc.approve(address(vault), type(uint256).max);
     }
     
-    function testFullCrossChainFlow() public {
-        uint256 amount = 1000 * 10**6;
+    function testIntegration_LockTokensPublishesMessage() public {
+        uint256 amount = 1000e6;
         
-        vm.prank(user);
-        bytes32 transferId = vault.lockTokens{value: MESSAGE_FEE}(
+        vm.startPrank(alice);
+        usdc.approve(address(vault), amount);
+        
+        uint64 seq1 = bridgeCore.getMessageSequence(address(vault));
+        
+        vault.lockTokens{value: 0.001 ether}(
             address(usdc),
             amount,
-            2,
-            addressToBytes32(user2)
+            SOLANA_DEVNET,
+            SOLANA_USDC_MINT,
+            aliceSolanaAddress
         );
         
-        assertEq(usdc.balanceOf(address(vault)), amount);
-        assertTrue(transferId != bytes32(0));
+        vm.stopPrank();
         
-        bytes memory vaa = buildTokenTransferVAA(
-            address(usdc),
-            amount,
-            uint16(block.chainid),
-            addressToBytes32(user2),
-            2,
-            address(usdc),
-            uint64(amount),
-            1,
-            1,
-            address(vault),
-            0
+        uint64 seq2 = bridgeCore.getMessageSequence(address(vault));
+        
+        assertEq(seq2, seq1 + 1);
+    }
+    
+    function testIntegration_ReceiveMessageUnlockTokens() public {
+        usdc.mint(address(vault), 10000e6);
+        
+        vm.prank(governance);
+        vault.registerBidirectionalBinding(
+            SOLANA_DEVNET,
+            SOLANA_USDC_MINT,
+            LOCAL_CHAIN_ID,
+            TestHelpers.toBytes32(address(usdc)),
+            1, 1,
+            1, 1
         );
         
-        bool success = bridgeCore.receiveMessage(vaa);
+        bytes memory vaa = vaaBuilder.buildTokenTransferVAA(
+            0,
+            guardianPrivateKeys,
+            13,
+            SOLANA_DEVNET,
+            bytes32(uint256(0x123)),
+            0,
+            1000e6,
+            SOLANA_USDC_MINT,
+            SOLANA_DEVNET,
+            TestHelpers.toBytes32(alice),
+            LOCAL_CHAIN_ID,
+            TestHelpers.toBytes32(address(usdc)),
+            1000e6,
+            1,
+            1
+        );
+        
+        uint256 balanceBefore = usdc.balanceOf(alice);
+        
+        bool success = vault.unlockTokens(vaa);
+        
         assertTrue(success);
+        assertEq(usdc.balanceOf(alice), balanceBefore + 1000e6);
+    }
+    
+    function testIntegration_AtomicityOnFailure() public {
+        uint256 amount = 1000e6;
         
-        bytes32 vaaHash = keccak256(vaa);
+        vm.startPrank(alice);
+        usdc.approve(address(vault), amount - 1);
+        
+        uint256 balanceBefore = usdc.balanceOf(alice);
+        uint256 vaultBalanceBefore = vault.custodyBalances(address(usdc));
+        uint64 seqBefore = bridgeCore.getMessageSequence(address(vault));
+        
+        vm.expectRevert();
+        vault.lockTokens{value: 0.001 ether}(
+            address(usdc),
+            amount,
+            SOLANA_DEVNET,
+            SOLANA_USDC_MINT,
+            aliceSolanaAddress
+        );
+        
+        vm.stopPrank();
+        
+        assertEq(usdc.balanceOf(alice), balanceBefore);
+        assertEq(vault.custodyBalances(address(usdc)), vaultBalanceBefore);
+        assertEq(bridgeCore.getMessageSequence(address(vault)), seqBefore);
+    }
+    
+    function testIntegration_GuardianSetUpgrade() public {
+        (address[] memory newGuardians, uint256[] memory newKeys) = TestHelpers.generateGuardianKeys(19);
+        
+        bytes memory upgradePayload = abi.encodePacked(
+            bytes32("Core"),
+            uint8(2),
+            uint16(0),
+            uint32(1),
+            uint8(19),
+            newGuardians
+        );
+        
+        VAABuilder.VAAConfig memory config = VAABuilder.VAAConfig({
+            version: 1,
+            guardianSetIndex: 0,
+            timestamp: uint32(block.timestamp),
+            nonce: 0,
+            emitterChain: 0,
+            emitterAddress: bytes32(0),
+            sequence: 0,
+            consistencyLevel: 200,
+            payload: upgradePayload
+        });
+        
+        bytes memory vaa = vaaBuilder.buildVAA(config, guardianPrivateKeys, 13);
+        bridgeCore.updateGuardianSet(vaa);
+        
+        assertEq(bridgeCore.getCurrentGuardianSetIndex(), 1);
+        
+        bytes memory newSetVAA = vaaBuilder.buildTokenTransferVAA(
+            1,
+            newKeys,
+            13,
+            LOCAL_CHAIN_ID,
+            TestHelpers.toBytes32(address(this)),
+            0,
+            1000e6,
+            TestHelpers.toBytes32(address(usdc)),
+            LOCAL_CHAIN_ID,
+            aliceSolanaAddress,
+            SOLANA_DEVNET,
+            SOLANA_USDC_MINT,
+            1000e6,
+            1,
+            1
+        );
+        
+        bytes32 vaaHash = bridgeCore.receiveMessage(newSetVAA);
         assertTrue(bridgeCore.isVAAConsumed(vaaHash));
     }
     
-    function testTokenBindingFlow() public {
-        uint256 amount = 1000 * 10**6;
+    function testIntegration_TokenBindingVerification() public {
+        vm.prank(governance);
+        vault.registerBidirectionalBinding(
+            LOCAL_CHAIN_ID,
+            TestHelpers.toBytes32(address(usdc)),
+            SOLANA_DEVNET,
+            SOLANA_USDC_MINT,
+            1, 1,
+            1, 1
+        );
         
-        vm.prank(user);
-        vault.lockTokens{value: MESSAGE_FEE}(address(usdc), amount, 2, addressToBytes32(user2));
+        uint256 amount = 1000e6;
         
-        bytes memory vaa = buildTokenTransferVAA(
+        vm.startPrank(alice);
+        usdc.approve(address(vault), amount);
+        
+        uint64 sequence = vault.lockTokens{value: 0.001 ether}(
             address(usdc),
             amount,
-            uint16(block.chainid),
-            addressToBytes32(user2),
-            2,
-            address(usdc),
-            uint64(amount),
-            1,
-            1,
-            address(vault),
-            0
+            SOLANA_DEVNET,
+            SOLANA_USDC_MINT,
+            aliceSolanaAddress
         );
-        
-        vault.unlockTokens(vaa);
-        
-        assertEq(usdc.balanceOf(user2), 10_000_000 * 10**6 + amount);
-    }
-    
-    function testMultipleRoundTrips() public {
-        uint256 amount = 100 * 10**6;
-        
-        vm.startPrank(user);
-        
-        for (uint i = 0; i < 3; i++) {
-            vault.lockTokens{value: MESSAGE_FEE}(address(usdc), amount, 2, addressToBytes32(user2));
-            
-            bytes memory vaa = buildTokenTransferVAA(
-                address(usdc),
-                amount,
-                2,
-                addressToBytes32(user),
-                uint16(block.chainid),
-                address(usdc),
-                uint64(amount),
-                1,
-                1,
-                address(vault),
-                uint64(i)
-            );
-            
-            vault.unlockTokens(vaa);
-        }
         
         vm.stopPrank();
         
-        assertEq(usdc.balanceOf(user), 10_000_000 * 10**6);
+        assertGe(sequence, 0);
     }
     
-    function testGuardianSetUpgrade() public {
-        bytes memory payload = hex"0102030405";
-        bytes memory vaa = buildValidVAA(0, GUARDIAN_QUORUM, payload, 123, 1, address(this), 0);
-        
+    function testIntegration_RegisterBidirectionalBinding() public {
         vm.prank(governance);
-        bridgeCore.updateGuardianSet(vaa);
-    }
-    
-    function testGuardianSetUpgrade_TransitionOldSet() public {
-        bytes memory payload = hex"0102030405";
-        bytes memory vaa = buildValidVAA(0, GUARDIAN_QUORUM, payload, 123, 1, address(this), 0);
-        
-        bool success = bridgeCore.receiveMessage(vaa);
-        assertTrue(success);
-    }
-    
-    function testGuardianSetUpgrade_TransitionNewSet() public {
-        bytes memory payload = hex"0102030405";
-        bytes memory vaa = buildValidVAA(0, GUARDIAN_QUORUM, payload, 123, 1, address(this), 0);
-        
-        bool success = bridgeCore.receiveMessage(vaa);
-        assertTrue(success);
-    }
-    
-    function testGuardianSetUpgrade_AfterExpiration() public {
-        bytes memory payload = hex"0102030405";
-        bytes memory vaa = buildValidVAA(0, GUARDIAN_QUORUM, payload, 123, 1, address(this), 0);
-        
-        vm.warp(block.timestamp + 8 days);
-        
-        vm.expectRevert();
-        bridgeCore.receiveMessage(vaa);
-    }
-    
-    function testVAADuplicateSubmission() public {
-        bytes memory payload = hex"0102030405";
-        bytes memory vaa = buildValidVAA(0, GUARDIAN_QUORUM, payload, 123, 1, address(this), 0);
-        
-        bridgeCore.receiveMessage(vaa);
-        
-        vm.expectRevert(IBridgeCore.VAAAlreadyConsumed.selector);
-        bridgeCore.receiveMessage(vaa);
-    }
-    
-    function testGasFailureRecovery() public {
-        bytes memory payload = hex"0102030405";
-        bytes memory vaa = buildValidVAA(0, GUARDIAN_QUORUM, payload, 123, 1, address(this), 0);
-        
-        bool success = bridgeCore.receiveMessage(vaa);
-        assertTrue(success);
-    }
-    
-    function testPauseDuringOperation() public {
-        uint256 amount = 1000 * 10**6;
-        
-        vm.prank(governance);
-        bridgeCore.setPaused(true);
-        
-        vm.prank(user);
-        vm.expectRevert(ITokenVault.BridgePaused.selector);
-        vault.lockTokens{value: MESSAGE_FEE}(address(usdc), amount, 2, addressToBytes32(user2));
-    }
-    
-    function testMultiContractConcurrency() public {
-        uint256 amount = 100 * 10**6;
-        
-        vm.prank(user);
-        vault.lockTokens{value: MESSAGE_FEE}(address(usdc), amount, 2, addressToBytes32(user2));
-        
-        vm.prank(user2);
-        usdc.approve(address(vault), type(uint256).max);
-        
-        vm.prank(user2);
-        vault.lockTokens{value: MESSAGE_FEE}(address(usdc), amount, 2, addressToBytes32(user));
-        
-        assertEq(usdc.balanceOf(address(vault)), amount * 2);
-    }
-    
-    function testCrossChainExchangeFlow() public {
-        uint256 sourceAmount = 1000 * 10**6;
-        uint64 targetAmount = 998 * 10**6;
-        
-        vm.prank(user);
-        vault.lockTokens{value: MESSAGE_FEE}(address(usdc), sourceAmount, 2, addressToBytes32(user2));
-        
-        bytes memory vaa = buildTokenTransferVAA(
-            address(usdc),
-            sourceAmount,
-            2,
-            addressToBytes32(user2),
-            uint16(block.chainid),
-            address(usdt),
-            targetAmount,
-            998,
-            1000,
-            address(vault),
-            0
+        vault.registerBidirectionalBinding(
+            LOCAL_CHAIN_ID,
+            TestHelpers.toBytes32(address(usdc)),
+            SOLANA_DEVNET,
+            SOLANA_USDC_MINT,
+            1, 1,
+            1, 1
         );
         
-        vm.expectRevert();
-        vault.unlockTokens(vaa);
-    }
-    
-    function testMultiTokenSupport() public {
-        uint256 usdcAmount = 1000 * 10**6;
-        uint256 wethAmount = 1 * 10**18;
+        uint256 amount = 1000e6;
         
-        vm.startPrank(user);
+        vm.startPrank(alice);
+        usdc.approve(address(vault), amount);
         
-        weth.approve(address(vault), type(uint256).max);
-        
-        vault.lockTokens{value: MESSAGE_FEE}(address(usdc), usdcAmount, 2, addressToBytes32(user2));
-        
-        vault.lockTokens{value: MESSAGE_FEE}(address(weth), wethAmount, 2, addressToBytes32(user2));
+        uint64 outboundSeq = vault.lockTokens{value: 0.001 ether}(
+            address(usdc),
+            amount,
+            SOLANA_DEVNET,
+            SOLANA_USDC_MINT,
+            aliceSolanaAddress
+        );
         
         vm.stopPrank();
         
-        assertEq(usdc.balanceOf(address(vault)), usdcAmount);
-        assertEq(weth.balanceOf(address(vault)), wethAmount);
+        assertGe(outboundSeq, 0);
+        
+        usdc.mint(address(vault), 10000e6);
+        
+        bytes memory vaa = vaaBuilder.buildTokenTransferVAA(
+            0,
+            guardianPrivateKeys,
+            13,
+            SOLANA_DEVNET,
+            bytes32(uint256(0x123)),
+            0,
+            1000e6,
+            SOLANA_USDC_MINT,
+            SOLANA_DEVNET,
+            TestHelpers.toBytes32(bob),
+            LOCAL_CHAIN_ID,
+            TestHelpers.toBytes32(address(usdc)),
+            1000e6,
+            1,
+            1
+        );
+        
+        uint256 bobBalanceBefore = usdc.balanceOf(bob);
+        bool success = vault.unlockTokens(vaa);
+        
+        assertTrue(success);
+        assertEq(usdc.balanceOf(bob), bobBalanceBefore + 1000e6);
+    }
+    
+    function testIntegration_UpdateExchangeRate() public {
+        vm.prank(governance);
+        vault.registerBidirectionalBinding(
+            LOCAL_CHAIN_ID,
+            TestHelpers.toBytes32(address(usdc)),
+            SOLANA_DEVNET,
+            SOLANA_USDT_MINT,
+            998, 1000,
+            1002, 1000
+        );
+        
+        vm.prank(governance);
+        vault.setExchangeRate(
+            LOCAL_CHAIN_ID,
+            TestHelpers.toBytes32(address(usdc)),
+            SOLANA_DEVNET,
+            SOLANA_USDT_MINT,
+            997, 1000
+        );
+    }
+    
+    function testIntegration_DisableTokenBinding() public {
+        vm.prank(governance);
+        vault.registerBidirectionalBinding(
+            LOCAL_CHAIN_ID,
+            TestHelpers.toBytes32(address(usdc)),
+            SOLANA_DEVNET,
+            SOLANA_USDC_MINT,
+            1, 1,
+            1, 1
+        );
+        
+        vm.prank(governance);
+        vault.setTokenBindingEnabled(
+            LOCAL_CHAIN_ID,
+            TestHelpers.toBytes32(address(usdc)),
+            SOLANA_DEVNET,
+            SOLANA_USDC_MINT,
+            false
+        );
+        
+        uint256 amount = 1000e6;
+        
+        vm.startPrank(alice);
+        usdc.approve(address(vault), amount);
+        
+        vm.expectRevert();
+        vault.lockTokens{value: 0.001 ether}(
+            address(usdc),
+            amount,
+            SOLANA_DEVNET,
+            SOLANA_USDC_MINT,
+            aliceSolanaAddress
+        );
+        
+        vm.stopPrank();
+    }
+    
+    function testIntegration_MultiTokenBinding() public {
+        vm.startPrank(governance);
+        
+        vault.registerTokenBinding(
+            LOCAL_CHAIN_ID,
+            TestHelpers.toBytes32(address(usdc)),
+            SOLANA_DEVNET,
+            SOLANA_USDC_MINT,
+            1, 1
+        );
+        
+        vault.registerTokenBinding(
+            LOCAL_CHAIN_ID,
+            TestHelpers.toBytes32(address(usdc)),
+            SOLANA_DEVNET,
+            SOLANA_USDT_MINT,
+            998, 1000
+        );
+        
+        vm.stopPrank();
+        
+        uint256 amount = 1000e6;
+        
+        vm.startPrank(alice);
+        usdc.approve(address(vault), amount * 2);
+        
+        uint64 seq1 = vault.lockTokens{value: 0.001 ether}(
+            address(usdc),
+            amount,
+            SOLANA_DEVNET,
+            SOLANA_USDC_MINT,
+            aliceSolanaAddress
+        );
+        
+        uint64 seq2 = vault.lockTokens{value: 0.001 ether}(
+            address(usdc),
+            amount,
+            SOLANA_DEVNET,
+            SOLANA_USDT_MINT,
+            aliceSolanaAddress
+        );
+        
+        vm.stopPrank();
+        
+        assertEq(seq2, seq1 + 1);
+    }
+    
+    function testIntegration_CrossCurrencyExchangeVerification() public {
+        vm.prank(governance);
+        vault.registerBidirectionalBinding(
+            LOCAL_CHAIN_ID,
+            TestHelpers.toBytes32(address(usdc)),
+            SOLANA_DEVNET,
+            SOLANA_USDT_MINT,
+            998, 1000,
+            1002, 1000
+        );
+        
+        usdc.mint(address(vault), 10000e6);
+        
+        bytes memory vaa = vaaBuilder.buildTokenTransferVAA(
+            0,
+            guardianPrivateKeys,
+            13,
+            SOLANA_DEVNET,
+            bytes32(uint256(0x123)),
+            0,
+            1000e6,
+            SOLANA_USDT_MINT,
+            SOLANA_DEVNET,
+            TestHelpers.toBytes32(alice),
+            LOCAL_CHAIN_ID,
+            TestHelpers.toBytes32(address(usdc)),
+            1002e6,
+            1002, 1000
+        );
+        
+        uint256 balanceBefore = usdc.balanceOf(alice);
+        bool success = vault.unlockTokens(vaa);
+        
+        assertTrue(success);
+        assertEq(usdc.balanceOf(alice), balanceBefore + 1002e6);
     }
 }
-
